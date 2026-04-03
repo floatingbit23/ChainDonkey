@@ -1,11 +1,17 @@
 package simpleblockchain;
 
-import java.security.MessageDigest; // Used for SHA-256 hashing
+import java.security.Key;
+import java.security.MessageDigest;
+import java.security.PrivateKey; // Used to convert Objects to JSON strings
+import java.security.PublicKey;
+import java.security.Signature;
+import java.util.Base64;
 
-import com.google.gson.GsonBuilder; // Used to convert Objects to JSON strings
+import com.google.gson.GsonBuilder;
 
 // Class to handle SHA-256 hashing and JSON conversion
 public class StringUtil {
+
 
     // Public static method that applies SHA-256 to the received String, and returns the result
     public static String applySha256(String input) {
@@ -59,10 +65,12 @@ public class StringUtil {
         }
     }
 
+
     // Public static method that turns an Object into a JSON String
     public static String getJson(Object o) {
         return new GsonBuilder().setPrettyPrinting().create().toJson(o);
     }
+
 
     // Public static method that returns the difficulty String target, to compare to hash.
     public static String getDifficultyString(int difficulty) {
@@ -75,5 +83,72 @@ public class StringUtil {
 
     For example; a difficulty of 5 will return "00000"
     */
+
+    // ECDSA stands for Elliptic Curve Digital Signature Algorithm
+
+    // Method to create the cryptographic signature (ECDSA)
+    // > Receives the sender's private key (PrivateKey) and the Transaction Data (String)
+    // > Returns the signature (array of bytes)
+    public static byte[] applyECDSASig(PrivateKey privateKey, String input) {
+
+    Signature sig; // Object used to create the signature (dsa = digital signature algorithm)
+
+    byte[] output = new byte[0]; // Array of bytes to store the signature (initialized to empty)
+
+    try {
+
+        sig = Signature.getInstance("ECDSA", "BC"); // Create a Signature object using the ECDSA algorithm and the Bouncy Castle provider
+       
+        sig.initSign(privateKey); // Initialize the Signature object with the private key
+
+        byte[] strByte = input.getBytes(); // Convert the transaction data to an array of bytes
+
+        sig.update(strByte); // Update the Signature object with the transaction data
+
+        byte[] realSignature = sig.sign(); // Create the full signature (Private Key + Transaction Data)
+
+        output = realSignature; // Store the signature in the output array
+
+    } catch (Exception e) {
+        throw new RuntimeException(e);
+    }
+
+    return output;
+}
+	
+
+	// Method to verify an ECDSA signature
+    // > Receives the sender's public key (PublicKey), the Transaction Data (String), and the signature (byte[])
+    // > Returns a boolean (true if the signature is valid, false otherwise)
+	public static boolean verifyECDSASig(PublicKey publicKey, String data, byte[] signature) {
+		
+        try {
+
+            // Create a Signature object using the ECDSA algorithm and the Bouncy Castle provider
+			Signature sig = Signature.getInstance("ECDSA", "BC");
+
+            // Initialize the Signature object with the Public Key
+			sig.initVerify(publicKey);
+
+            // Update the Signature object with the transaction data
+			sig.update(data.getBytes());
+
+            // Now we have the full signature (Public Key + Transaction Data)
+
+            // Now we can verify the signature
+			return sig.verify(signature);
+
+		}catch(Exception e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+
+    // Method to convert a Key to a String
+    // > Receives a Key (PublicKey or PrivateKey) and returns its String representation (Base64 encoded)
+	public static String getStringFromKey(Key key) {
+        byte[] encodedKey = key.getEncoded(); // Converts the Key to an array of bytes
+		return Base64.getEncoder().encodeToString(encodedKey); // Converts the array of bytes to a String (Base64 encoded)
+	}
 
 }

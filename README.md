@@ -9,6 +9,7 @@ ChainDonkey es una infraestructura de almacenamiento descentralizado desarrollad
 - **Integridad de Datos**: Generación de hashes mediante el algoritmo SHA-256.
 - **Ecosistema Moderno**: Basado en **Java 25 (LTS)** y gestionado con **Maven**.
 - **Gestión de Datos**: Uso de **Google Gson** para la serialización y visualización del blockchain.
+- **Criptografía Avanzada**: Integración con **Bouncy Castle** para implementaciones de carteras digitales.
 
 ## Tecnologías utilizadas
 | Tecnología | Versión | Propósito |
@@ -16,6 +17,7 @@ ChainDonkey es una infraestructura de almacenamiento descentralizado desarrollad
 | **Java** | 25 (LTS) | Lenguaje base y runtime. |
 | **Maven** | 3.x+ | Gestión de dependencias y ciclo de vida. |
 | **Gson** | 2.11.0 | Conversión de objetos a JSON. |
+| **Bouncy Castle** | 1.83 | Librería criptográfica avanzada. |
 
 ## Estructura del proyecto
 Siguiendo las convenciones estándar de Maven:

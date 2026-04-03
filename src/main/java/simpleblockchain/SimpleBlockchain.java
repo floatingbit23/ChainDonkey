@@ -1,5 +1,6 @@
 package simpleblockchain;
 
+import java.security.Security;
 import java.util.ArrayList;
 
 // Class to represent the blockchain
@@ -8,8 +9,38 @@ public class SimpleBlockchain {
     public static ArrayList<Block> blockchain = new ArrayList<>(); // ArrayList to store the blocks
     public static int difficulty = 6; // Difficulty of the blockchain (static variable)
 
+    public static Wallet walletA;
+    public static Wallet walletB;
+
     public static void main(String[] args) {
 
+        //Setup Bouncey castle as a Security Provider
+		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider()); 
+
+        // Create the new wallets
+        walletA = new Wallet();
+        walletB = new Wallet();
+
+        /*
+         When a new wallet is created, the method generateKeyPair() is automatically called (because it is inside the constructor of the Wallet class).
+         This means that the private and public keys are generated automatically when the wallet is created.
+         They are stored in the privateKey and publicKey variables of the Wallet class.
+        */
+
+        // Test public and private keys
+		System.out.println("Private and public keys:");
+		System.out.println(StringUtil.getStringFromKey(walletA.privateKey));
+		System.out.println(StringUtil.getStringFromKey(walletA.publicKey));
+
+        //Creating a test transaction (5 coins, no inputs yet) from WalletA to walletB...
+		Transaction transaction = new Transaction(walletA.publicKey, walletB.publicKey, 5, null);
+
+        // Sign the transaction with walletA's private key
+		transaction.generateSignature(walletA.privateKey);
+
+        // Verify the transaction
+        System.out.println("Is the transaction valid? -> " + transaction.isSignatureValid());
+        
         // Adding our blocks to the blockchain ArrayList...
 
         // === GENESIS BLOCK ===
