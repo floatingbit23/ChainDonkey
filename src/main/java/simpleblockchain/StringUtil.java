@@ -5,6 +5,7 @@ import java.security.MessageDigest;
 import java.security.PrivateKey; // Used to convert Objects to JSON strings
 import java.security.PublicKey;
 import java.security.Signature;
+import java.util.ArrayList;
 import java.util.Base64;
 
 import com.google.gson.GsonBuilder;
@@ -60,7 +61,8 @@ public class StringUtil {
             // Convert the container to a String (unmutable) and return it
             return hexString.toString(); // Returns 64 hexadecimal characters (256 bits)
 
-        } catch (Exception e) { 
+        } catch (java.security.NoSuchAlgorithmException
+                 | java.io.UnsupportedEncodingException e) {
             throw new RuntimeException(e); //
         }
     }
@@ -88,7 +90,7 @@ public class StringUtil {
 
     // Method to create the cryptographic signature (ECDSA)
     // > Receives the sender's private key (PrivateKey) and the Transaction Data (String)
-    // > Returns the signature (array of bytes)
+    // >> Returns the signature (array of bytes)
     public static byte[] applyECDSASig(PrivateKey privateKey, String input) {
 
     Signature sig; // Object used to create the signature (dsa = digital signature algorithm)
@@ -109,7 +111,10 @@ public class StringUtil {
 
         output = realSignature; // Store the signature in the output array
 
-    } catch (Exception e) {
+    } catch (java.security.NoSuchAlgorithmException
+             | java.security.NoSuchProviderException
+             | java.security.InvalidKeyException
+             | java.security.SignatureException e) {
         throw new RuntimeException(e);
     }
 
@@ -119,7 +124,7 @@ public class StringUtil {
 
 	// Method to verify an ECDSA signature
     // > Receives the sender's public key (PublicKey), the Transaction Data (String), and the signature (byte[])
-    // > Returns a boolean (true if the signature is valid, false otherwise)
+    // >> Returns a boolean (true if the signature is valid, false otherwise)
 	public static boolean verifyECDSASig(PublicKey publicKey, String data, byte[] signature) {
 		
         try {
@@ -138,7 +143,10 @@ public class StringUtil {
             // Now we can verify the signature
 			return sig.verify(signature);
 
-		}catch(Exception e) {
+		} catch (java.security.NoSuchAlgorithmException
+				 | java.security.NoSuchProviderException
+				 | java.security.InvalidKeyException
+				 | java.security.SignatureException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -149,6 +157,75 @@ public class StringUtil {
 	public static String getStringFromKey(Key key) {
         byte[] encodedKey = key.getEncoded(); // Converts the Key to an array of bytes
 		return Base64.getEncoder().encodeToString(encodedKey); // Converts the array of bytes to a String (Base64 encoded)
+	}
+
+    /*
+    In Java, a cryptographic key is an Object, therefore it cannot be directly printed to the console.
+    We must first convert the Key to an array of bytes (using the 'getEncoded()' method).
+    Then, we can convert the array of bytes to a String (using the 'Base64.getEncoder().encodeToString()' method).
+    */
+
+
+    // === MERKLE TREE ===
+
+    // Method to calculate the Merkle Root (the root hash of all the transactions)
+    // > Receives an ArrayList of Transactions
+    // >> Returns a String (the Merkle Root)
+    public static String getMerkleRoot(ArrayList<Transaction> transactions) {
+
+		int count = transactions.size(); // Number of transactions/hashes in the current layer
+
+		// 1. Create an empty ArrayList to store the transaction IDs (Strings)
+		ArrayList<String> previousTreeLayer = new ArrayList<>();
+
+		// Loop through all the transactions
+		for(Transaction transaction : transactions) {
+			previousTreeLayer.add(transaction.transactionId); // Add the transaction ID to the ArrayList
+		}
+
+		// 2. Create an ArrayList to store the current layer of the Merkle Tree
+		ArrayList<String> treeLayer = previousTreeLayer;
+
+        // 3. Loop until we have a single hash (the Merkle Root)
+
+		while(count > 1) { // While the count is greater than 1 (meaning we don't have a single hash yet)
+
+			treeLayer = new ArrayList<>(); // Create a new empty ArrayList to store the current layer
+
+            // Loop through the previous layer (taking two hashes at a time)
+            // We increment by 2 to take two hashes at a time
+			for(int i=0; i < previousTreeLayer.size(); i+=2) { 
+				
+                // Get the left and right hashes 
+                String left = previousTreeLayer.get(i);
+                String right = (i + 1 < previousTreeLayer.size()) ? previousTreeLayer.get(i + 1) : left;
+
+                // Concatenate the left and right hashes and hash them
+                String combined = applySha256(left + right);
+
+                // Add the combined hash to the current layer
+                treeLayer.add(combined);
+
+			}
+
+			count = treeLayer.size(); // Update the count
+			previousTreeLayer = treeLayer; // Update the previous layer
+		}
+
+        /*
+        Example:
+
+        Transactions: [T1, T2, T3, T4], each transaction has its own hash (H1, H2, H3, H4) -> previousTreeLayer, previousTreeLayer.size() = 4
+
+        Layer 1: [H1, H2, H3, H4] -> treeLayer (first iteration), treeLayer.size() = 4 -> count = 4 -> new previousLayer
+        Layer 2: [H1H2, H3H4] -> treeLayer (second iteration), treeLayer.size() = 2 -> count = 2 -> new previousLayer
+        Layer 3: [H1H2H3H4] -> Merkle Root (third iteration), treeLayer.size() = 1 (Merkle Root) -> count = 1 (so the while loop ends)
+        */
+
+		// If the treeLayer has only one element, it's the Merkle Root (ternary operator)
+		String merkleRoot = (treeLayer.size() == 1) ? treeLayer.get(0) : ""; 
+     
+        return merkleRoot;
 	}
 
 }
