@@ -166,7 +166,7 @@ public class StringUtil {
     */
 
 
-    // === MERKLE TREE ===
+    // === LOGIC FOR MERKLE TREE ===
 
     // Method to calculate the Merkle Root (the root hash of all the transactions)
     // > Receives an ArrayList of Transactions

@@ -99,6 +99,11 @@ public class SimpleBlockchain {
 
         // === CHECKING IF THE BLOCKCHAIN IS VALID ===
         isChainValid();
+
+        // Convert the blockchain to a JSON string and print it
+        String blockchainJson = StringUtil.getJson(blockchain);
+        System.out.println("\nThe JSON blockchain: ");
+        System.out.println(blockchainJson);
         
     }
 

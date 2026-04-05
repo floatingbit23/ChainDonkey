@@ -38,7 +38,7 @@ public class Block {
 				previousHash +
 						Long.toString(timeStamp) +
 						Integer.toString(nonce) +
-						merkleRoot);
+						merkleRoot); // Merkle root is the genesis hash of the transactions in this block
 
 		return calculatedhash; // Returns the calculated hash
 	}
