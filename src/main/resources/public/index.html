@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChainDonkey Explorer | Decentralized Ledger</title>
+    
+    <!-- External Fonts: Outfit for body, JetBrains Mono for cryptographic data -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <!-- Core External Stylesheet (Design & Layout) -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- SITE HEADER -->
+    <header>
+        <div class="logo">ChainDonkey Explorer</div>
+        <div class="status-badge">
+            <div class="status-dot"></div>
+            Node Active
+        </div>
+    </header>
+
+    <main>
+        <!-- REAL-TIME NETWORK STATISTICS OVERVIEW -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Avg. Block Time</span>
+                <div class="stat-value">
+                    <span id="stat-block-time">0.00</span>
+                    <span class="stat-unit">S</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Block Capacity</span>
+                <div class="stat-value">
+                    <span id="stat-tx-limit">5</span>
+                    <span class="stat-unit">TX MAX</span>
+                </div>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Circulating Supply</span>
+                <div class="stat-value">
+                    <span id="stat-supply">0.00</span>
+                    <span class="stat-unit">DONKS</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- PRIMARY BLOCKCHAIN VISUALIZATION FEED -->
+        <section id="blockchain-view" class="blockchain-container">
+            <div class="empty-msg">Waiting for node synchronization...</div>
+        </section>
+
+        <!-- NAVIGATION CONTROLS (Hidden if total blocks < pageSize) -->
+        <div id="pagination-controls" class="pagination-container" style="display: none;">
+            <button id="prev-btn" class="pag-btn" onclick="changePage(-1)">Previous</button>
+            <span id="page-info" class="page-info">Page 1 of 1</span>
+            <button id="next-btn" class="pag-btn" onclick="changePage(1)">Next</button>
+        </div>
+    </main>
+
+    <!-- TRANSACTION DETAIL MODAL OVERLAY -->
+    <div id="modal-overlay">
+        <div class="modal-card">
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+            <div id="modal-content"></div>
+        </div>
+    </div>
+
+    <!-- Core External Script (Logic & API Integration) -->
+    <script src="app.js"></script>
+</body>
+</html>

@@ -54,6 +54,8 @@ public class Block {
 		// (e.g. 5 -> "00000")
 		String target = StringUtil.getDifficultyString(difficulty);
 
+		System.out.println("\n[ MINER ] Mining Block... (Difficulty: " + difficulty + ")");
+
 		// Loop until the hash starts with the target string
 		while (!hash.substring(0, difficulty).equals(target)) { // while substring != "00000"...
 			nonce++; // Increment nonce
@@ -86,6 +88,11 @@ public class Block {
 				System.out.println("\n[ FAIL ] Transaction failed to process. Discarded from block.");
 				return false;
 			}
+		}
+
+		if (transactions.size() >= 5) {
+			System.out.println("\n[ FAIL ] Block is full (Max: 5). Transaction discarded.");
+			return false;
 		}
 
 		// Add the transaction to the list of transactions

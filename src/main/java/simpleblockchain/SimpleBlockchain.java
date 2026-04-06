@@ -8,7 +8,7 @@ import java.util.HashMap;
 public class SimpleBlockchain {
 
     public static ArrayList<Block> blockchain = new ArrayList<>(); // ArrayList to store the blocks
-    public static int difficulty = 5; // Difficulty of the blockchain (static)
+    public static int difficulty = 6; // Difficulty of the blockchain (static)
     public static float minimumTransaction = 0.1f; // Minimum amount of coins to be transferred
 
     // Unspent Map(key, value) -> mapea los UTXOs (Unspent Transaction Outputs) y evita duplicar transacciones
@@ -25,9 +25,14 @@ public class SimpleBlockchain {
         //Setup Bouncey castle as a Security Provider
 		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider()); 
 
+        // Start the Web Dashboard
+        BlockchainServer.start(blockchain);
+
         // Create the new wallets
         walletA = new Wallet();
         walletB = new Wallet();
+        Wallet walletC = new Wallet();
+        Wallet walletD = new Wallet();
         Wallet coinbase = new Wallet(); // The wallet that will receive the mining rewards
 
         /*
@@ -47,7 +52,7 @@ public class SimpleBlockchain {
         // it's very important to store our first transaction in the UTXOs list
         
         // 1. Create the genesis block (the first block in the chain, previousHash is "0" because it doesn't exist)
-        System.out.println("[ INFO ] Creating and Mining Genesis block... ");
+        System.out.println("\n[ INFO ] Creating and Mining Genesis block... ");
         Block genesisBlock = new Block("0"); 
 
         // 2. Add the genesis transaction to the genesis block
@@ -93,9 +98,28 @@ public class SimpleBlockchain {
        block3.addTransaction(walletA.sendFunds(walletB.publicKey, 57f));
        addBlock(block3);
 
-       System.out.println("\nWalletA's balance is: " + walletA.getBalance()); // 70 - 57 = 13 coins
-       System.out.println("WalletB's balance is: " + walletB.getBalance()); // 30 + 57 = 87 coins
-        
+       System.out.println("\nWalletA's balance is: " + walletA.getBalance()); // 13 coins
+       System.out.println("WalletB's balance is: " + walletB.getBalance()); // 87 coins
+
+       // Block 4: Distributing to new users
+       Block block4 = new Block(block3.hash);
+       System.out.println("\nWalletB is distributing funds to WalletC and WalletD...");
+       block4.addTransaction(walletB.sendFunds(walletC.publicKey, 25f));
+       block4.addTransaction(walletB.sendFunds(walletD.publicKey, 15f));
+       addBlock(block4);
+
+       System.out.println("WalletC balance: " + walletC.getBalance()); // 25
+       System.out.println("WalletD balance: " + walletD.getBalance()); // 15
+
+       // Block 5: Complex flow and verification
+       Block block5 = new Block(block4.hash);
+       System.out.println("\nWalletC sends funds to WalletA and WalletD sends back to WalletB...");
+       block5.addTransaction(walletC.sendFunds(walletA.publicKey, 10f));
+       block5.addTransaction(walletD.sendFunds(walletB.publicKey, 5f));
+       addBlock(block5);
+
+       System.out.println("Final WalletA balance: " + walletA.getBalance()); // 23
+       System.out.println("Final WalletB balance: " + walletB.getBalance()); // 52
 
         // === CHECKING IF THE BLOCKCHAIN IS VALID ===
         isChainValid();

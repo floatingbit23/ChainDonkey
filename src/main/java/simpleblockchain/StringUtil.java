@@ -9,6 +9,8 @@ import java.util.ArrayList;
 import java.util.Base64;
 
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializer;
 
 // Class to handle SHA-256 hashing and JSON conversion
 public class StringUtil {
@@ -70,7 +72,14 @@ public class StringUtil {
 
     // Public static method that turns an Object into a JSON String
     public static String getJson(Object o) {
-        return new GsonBuilder().setPrettyPrinting().create().toJson(o);
+        return new GsonBuilder()
+            .setPrettyPrinting()
+            .registerTypeAdapter(byte[].class, (JsonSerializer<byte[]>) (src, typeOfSrc, context) -> 
+                new JsonPrimitive(Base64.getEncoder().encodeToString(src)))
+            .registerTypeAdapter(PublicKey.class, (JsonSerializer<PublicKey>) (src, typeOfSrc, context) -> 
+                new JsonPrimitive(getStringFromKey(src)))
+            .create()
+            .toJson(o);
     }
 
 
