@@ -11,7 +11,7 @@ ChainDonkey es una infraestructura de almacenamiento descentralizado desarrollad
 - **Integridad de Datos (Merkle Tree)**: Implementación de un árbol de Merkle binario para agrupar transacciones y garantizar la integridad total de cada bloque.
 
 - **Seguridad Criptográfica (ECDSA)**: Identidad digital basada en curvas elípticas (Bouncy Castle) para la firma y verificación de transacciones.
-- **Ecosistema Moderno**: Basado en **Java 25 (LTS)** y gestionado con **Maven**.
+- **Ecosistema Moderno**: Basado en **Java 21** y gestionado con **Maven**.
 
 - **Testing Suite**: Cobertura de pruebas automatizadas con **JUnit 5** para auditar el _ledger_ (libro contable de transacciones) y prevenir fraudes.
 
@@ -20,7 +20,7 @@ ChainDonkey es una infraestructura de almacenamiento descentralizado desarrollad
 ## Tecnologías utilizadas
 | Tecnología | Versión | Propósito |
 | :--- | :--- | :--- |
-| **Java** | 25 (LTS) | Lenguaje base y runtime. |
+| **Java** | 21 | Lenguaje base y runtime. |
 | **Maven** | 3.x+ | Gestión de dependencias y ciclo de vida. |
 | **JUnit 5** | 5.10.x | Suite de pruebas unitarias y de integración. |
 | **Gson** | 2.11.0 | Conversión de objetos a JSON. |
@@ -49,7 +49,7 @@ ChainDonkey/
 
 ### Requisitos previos
 
-- Tener instalado **Java 25** o superior.
+- Tener instalado **Java 21** o superior.
 - **Maven** instalado y configurado en el `PATH`.
 
 ### Cómo ejecutar (Playground)
