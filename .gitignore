@@ -40,3 +40,9 @@ Thumbs.db
 ##  JDT-specific (Eclipse Java Development Tools)
 .classpath
 
+# Agents/Skills
+.agents
+.continue
+.kiro
+.skills
+skills-lock.json
