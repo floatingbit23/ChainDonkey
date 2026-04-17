@@ -24,6 +24,7 @@ buildNumber.properties
 
 # Log files
 *.log
+chain*
 
 # OS generated files
 .DS_Store
@@ -46,3 +47,10 @@ Thumbs.db
 .kiro
 .skills
 skills-lock.json
+
+# Secrets and Node Identity
+node.identity
+*.identity
+
+# Internal Testing Files
+test_servers.py

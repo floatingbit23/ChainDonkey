@@ -10,9 +10,13 @@ import java.security.spec.ECGenParameterSpec;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 // Class to represent a wallet
 public class Wallet {
+
+    private static final Logger logger = LoggerFactory.getLogger(Wallet.class);
     
     public PrivateKey privateKey; // to sign transactions
     public PublicKey publicKey; // to verify transactions
@@ -57,6 +61,7 @@ public class Wallet {
         } catch (java.security.NoSuchAlgorithmException
                  | java.security.NoSuchProviderException
                  | java.security.InvalidAlgorithmParameterException e) {
+            logger.error("Error crítico al generar el par de claves ECDSA: {}", e.getMessage());
             throw new RuntimeException(e); // throw the exception if any of the above three exceptions occur
         } 
 
@@ -85,7 +90,7 @@ public class Wallet {
     public Transaction sendFunds(PublicKey recipientPK, float value){
         
         if(getBalance() < value) {
-            System.out.println("\n[ FAIL ] Not enough funds to send the transaction. Transaction discarded.");
+            logger.warn("Fallo al enviar fondos: Saldo insuficiente. Saldo: {}, Requerido: {}", getBalance(), value);
             return null; 
         }
 
