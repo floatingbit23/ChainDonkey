@@ -65,17 +65,16 @@ public class RealServerConnectionTest {
                   @Override
                   protected void initChannel(SocketChannel ch) {
                       logger.info("[LISTENER] Recibida conexión entrante desde {} (callback del servidor)", ch.remoteAddress());
-                      // IMPORTANTE: El servidor Sunrise usará ofuscación en el callback si nosotros la usamos
                       ch.pipeline().addLast(new Ed2kObfuscationHandler(false)); // Modo RESPONDER
                       ch.pipeline().addLast(new Ed2kCodec());
                       ch.pipeline().addLast(new SimpleChannelInboundHandler<Ed2kMessage>() {
                           @Override
                           public void channelActive(ChannelHandlerContext ctx) {
                               logger.info("[LISTENER] Handshake de ofuscación completado. Enviando OP_HELLO...");
+                              
                               List<Ed2kTag> helloTags = new ArrayList<>();
-                              helloTags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_STRING, (byte)0x01, "eMule"));
+                              helloTags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_STRING, Ed2kConstants.CT_NAME, "ChainDonkey_Alpha"));
                               helloTags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_VERSION, 60));
-                              helloTags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_VERSION_01, 60));
                               helloTags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_EMULE_VERSION, 0x003C0100));
                               
                               LoginRequest hello = new LoginRequest(
@@ -106,7 +105,7 @@ public class RealServerConnectionTest {
              .handler(new ChannelInitializer<SocketChannel>() {
                  @Override
                  protected void initChannel(SocketChannel ch) {
-                     // ch.pipeline().addLast(new Ed2kObfuscationHandler(true)); // Modo INITIATOR
+                      ch.pipeline().addLast(new Ed2kObfuscationHandler(true)); // Modo INITIATOR
                      ch.pipeline().addLast(new Ed2kCodec());
                      ch.pipeline().addLast(new SimpleChannelInboundHandler<Ed2kMessage>() {
                          @Override
@@ -114,9 +113,8 @@ public class RealServerConnectionTest {
                              logger.info("[TEST] Conectado al servidor {}:{}. Enviando LoginRequest...", SERVER_IP, SERVER_PORT);
                              
                              List<Ed2kTag> tags = new ArrayList<>();
-                             tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_STRING, (byte)0x01, "eMule"));
+                             tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_STRING, Ed2kConstants.CT_NAME, "ChainDonkey_Alpha"));
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_VERSION, 60));
-                             tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_VERSION_01, 60));
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_EMULE_VERSION, 0x003C0100));
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_SERVER_FLAGS, 0x1D));
 

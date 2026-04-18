@@ -1,6 +1,7 @@
 package network.protocol.ed2k;
 
 import java.math.BigInteger;
+import java.net.InetSocketAddress;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -15,14 +16,14 @@ import io.netty.handler.codec.ByteToMessageCodec;
 
 /**
  * Manejador de la ofuscación del protocolo eD2K (Handshake Diffie-Hellman + RC4).
- * Soporta modo INITIATOR (para conexiones salientes) y RESPONDER (para callbacks).
+ * Configurado para conexiones a Servidores (Sunrise, eMule Security) usando sales 0xCB/0x22.
  */
 public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
 
     private static final Logger logger = LoggerFactory.getLogger(Ed2kObfuscationHandler.class);
 
     private static final BigInteger G = BigInteger.valueOf(2);
-    // Prime dh768_p real extraído de eMule source (96 bytes)
+    // Prime dh768_p real (96 bytes)
     private static final BigInteger P = new BigInteger(1, new byte[]{
         (byte)0xF2, (byte)0xBF, (byte)0x52, (byte)0xC5, (byte)0x5F, (byte)0x58, (byte)0x7A, (byte)0xDD, (byte)0x53, (byte)0x71, (byte)0xA9, (byte)0x36,
         (byte)0xE8, (byte)0x86, (byte)0xEB, (byte)0x3C, (byte)0x62, (byte)0x17, (byte)0xA3, (byte)0x3E, (byte)0xC3, (byte)0x4C, (byte)0xB4, (byte)0x0D,
@@ -36,8 +37,10 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
 
     private static final int PRIMESIZE_BYTES = 96;
     private static final int MAGICVALUE_SYNC = 0x835E6FC4;
-    private static final byte MAGICVALUE_REQUESTER = 0x00;
-    private static final byte MAGICVALUE_SERVER = 0x01;
+    
+    // Sales para Servidor (Confirmadas por Brute-Force en Sunrise)
+    private static final byte SERVER_SALT_RECV = (byte) 0xCB; // 203
+    private static final byte SERVER_SALT_SEND = (byte) 0x22; // 34
 
     public enum State {
         INITIATOR_SEND_DH_PUB,
@@ -71,7 +74,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         if (initiator) {
             startInitiatorHandshake(ctx);
         } else {
-            logger.info("[OBFUSCATION] Modo RESPONDER activo. Esperando handshake del servidor...");
+            logger.info("[OBFUSCATION] Modo RESPONDER activo.");
             super.channelActive(ctx);
         }
     }
@@ -94,18 +97,21 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         switch (state) {
             case RESPONDER_WAIT_DH_PUB -> {
                 if (in.readableBytes() < PRIMESIZE_BYTES + 1) return;
-                in.readByte();
+                in.readByte(); // 0x80
                 byte[] publicBBytes = new byte[PRIMESIZE_BYTES];
                 in.readBytes(publicBBytes);
+                BigInteger publicB = new BigInteger(1, publicBBytes);
                 byte[] aBytes = new byte[16];
                 random.nextBytes(aBytes);
                 privateA = new BigInteger(1, aBytes);
                 BigInteger publicA = G.modPow(privateA, P);
-                BigInteger sharedSecret = new BigInteger(1, publicBBytes).modPow(privateA, P);
-                initCiphers(encodeTo96Bytes(sharedSecret), false);
+                BigInteger sharedSecret = publicB.modPow(privateA, P);
+                initCiphers(ctx, encodeTo96Bytes(sharedSecret), false);
+                
                 ByteBuf dhAnswer = ctx.alloc().buffer(PRIMESIZE_BYTES);
                 dhAnswer.writeBytes(encodeTo96Bytes(publicA));
                 ctx.writeAndFlush(dhAnswer);
+                
                 state = State.WAIT_MAGIC;
                 decode(ctx, in, out);
             }
@@ -115,7 +121,11 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                 in.readBytes(publicBBytes);
                 BigInteger publicB = new BigInteger(1, publicBBytes);
                 BigInteger sharedSecret = publicB.modPow(privateA, P);
-                initCiphers(encodeTo96Bytes(sharedSecret), true);
+                initCiphers(ctx, encodeTo96Bytes(sharedSecret), true);
+                
+                // Enviar Magic inmediatamente
+                sendHandshakeMagic(ctx, true);
+                
                 state = State.WAIT_MAGIC;
                 decode(ctx, in, out);
             }
@@ -124,12 +134,15 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                 byte[] magicBytes = new byte[4];
                 in.readBytes(magicBytes);
                 byte[] decryptedMagic = rc4Receive.update(magicBytes);
-                long magic = ((decryptedMagic[3] & 0xFFL) << 24) | ((decryptedMagic[2] & 0xFFL) << 16) | ((decryptedMagic[1] & 0xFFL) << 8) | (decryptedMagic[0] & 0xFFL);
+                long magic = ((decryptedMagic[3] & 0xFFL) << 24) | 
+                             ((decryptedMagic[2] & 0xFFL) << 16) | 
+                             ((decryptedMagic[1] & 0xFFL) << 8) | 
+                             (decryptedMagic[0] & 0xFFL);
                 
-                if (magic != MAGICVALUE_SYNC) {
+                if (magic != (MAGICVALUE_SYNC & 0xFFFFFFFFL)) {
                     StringBuilder sb = new StringBuilder();
                     for (byte b : decryptedMagic) sb.append(String.format("%02X ", b));
-                    logger.error("[OBFUSCATION] Magic mismatch! Esperado 0x835E6FC4, recibido 0x{} (Bytes: {})", Long.toHexString(magic).toUpperCase(), sb.toString());
+                    logger.error("[OBFUSCATION] Magic mismatch! Recibido 0x{} (Bytes: {})", Long.toHexString(magic).toUpperCase(), sb.toString());
                     throw new IllegalStateException("Obfuscation Magic Value mismatch!");
                 }
                 
@@ -137,7 +150,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                 decode(ctx, in, out);
             }
             case WAIT_METHODS -> {
-                int bytesWanted = initiator ? 3 : 2;
+                int bytesWanted = initiator ? 2 : 3;
                 if (in.readableBytes() < bytesWanted) return;
                 byte[] methodsBytes = new byte[bytesWanted];
                 in.readBytes(methodsBytes);
@@ -153,12 +166,12 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                     in.readBytes(padding);
                     rc4Receive.update(padding);
                 }
-                if (initiator) sendInitiatorHandshakeResponse(ctx);
-                else sendResponderHandshakeResponse(ctx);
-                logger.info("[OBFUSCATION] Handshake completado ({})", initiator ? "Iniciador" : "Respondedor");
+                
+                if (!initiator) sendHandshakeMagic(ctx, false);
+                
+                logger.info("[OBFUSCATION] Handshake completado exitosamente.");
                 state = State.ENCRYPTING;
-                if (initiator) ctx.executor().schedule(() -> ctx.fireChannelActive(), 250, java.util.concurrent.TimeUnit.MILLISECONDS);
-                else ctx.fireChannelActive();
+                ctx.fireChannelActive();
                 decode(ctx, in, out);
             }
             case ENCRYPTING -> {
@@ -183,31 +196,46 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         out.writeBytes(rc4Send.update(plain));
     }
 
-    private void sendInitiatorHandshakeResponse(ChannelHandlerContext ctx) {
+    private void sendHandshakeMagic(ChannelHandlerContext ctx, boolean isInit) {
         ByteBuf out = ctx.alloc().buffer();
-        out.writeBytes(new byte[]{(byte)(MAGICVALUE_SYNC & 0xFF), (byte)((MAGICVALUE_SYNC >> 8) & 0xFF), (byte)((MAGICVALUE_SYNC >> 16) & 0xFF), (byte)((MAGICVALUE_SYNC >> 24) & 0xFF), 0x00, 0x01, (byte)0xAA});
+        out.writeIntLE(MAGICVALUE_SYNC);
+        if (isInit) {
+            out.writeByte(0x01); // 1 método
+            out.writeByte(0x01); // RC4
+        } else {
+            out.writeByte(0x01); // RC4 seleccionado
+        }
+        int paddingLen = random.nextInt(32);
+        out.writeByte(paddingLen);
+        if (paddingLen > 0) {
+            byte[] padding = new byte[paddingLen];
+            random.nextBytes(padding);
+            out.writeBytes(padding);
+        }
+        
         byte[] plain = new byte[out.readableBytes()];
         out.readBytes(plain);
         ctx.writeAndFlush(ctx.alloc().buffer().writeBytes(rc4Send.update(plain)));
     }
 
-    private void sendResponderHandshakeResponse(ChannelHandlerContext ctx) {
-        ByteBuf out = ctx.alloc().buffer();
-        out.writeBytes(new byte[]{(byte)(MAGICVALUE_SYNC & 0xFF), (byte)((MAGICVALUE_SYNC >> 8) & 0xFF), (byte)((MAGICVALUE_SYNC >> 16) & 0xFF), (byte)((MAGICVALUE_SYNC >> 24) & 0xFF), 0x00, 0x00, 0x01, (byte)0xBB});
-        byte[] plain = new byte[out.readableBytes()];
-        out.readBytes(plain);
-        ctx.writeAndFlush(ctx.alloc().buffer().writeBytes(rc4Send.update(plain)));
-    }
-
-    private void initCiphers(byte[] sBytes, boolean isInitiator) {
-        byte[] buffer = new byte[sBytes.length + 1];
-        System.arraycopy(sBytes, 0, buffer, 0, sBytes.length);
-        buffer[sBytes.length] = isInitiator ? MAGICVALUE_SERVER : MAGICVALUE_REQUESTER;
+    private void initCiphers(ChannelHandlerContext ctx, byte[] sBytes, boolean isInitiator) {
+        // Para servidores, el salt es simplemente el Shared Secret (96) + Flag (1)
+        byte[] buffer = new byte[PRIMESIZE_BYTES + 1];
+        System.arraycopy(sBytes, 0, buffer, 0, PRIMESIZE_BYTES);
+        
+        // Clave de Recepción
+        buffer[PRIMESIZE_BYTES] = isInitiator ? SERVER_SALT_RECV : (byte)0x00;
         rc4Receive = new Cipher(new MD5Sum(buffer).GetRawHash());
-        rc4Receive.update(new byte[1024]);
-        buffer[sBytes.length] = isInitiator ? MAGICVALUE_REQUESTER : MAGICVALUE_SERVER;
+        rc4Receive.update(new byte[1024]); // Descarte de 1024 bytes (Confirmado por brute-force)
+
+        // Clave de Envío
+        buffer[PRIMESIZE_BYTES] = isInitiator ? SERVER_SALT_SEND : (byte)0x01;
         rc4Send = new Cipher(new MD5Sum(buffer).GetRawHash());
-        rc4Send.update(new byte[1024]);
+        rc4Send.update(new byte[1024]); // Descarte de 1024 bytes
+        
+        logger.info("[OBFUSCATION] Cifrados inicializados con sales 0x{} (Recv) / 0x{} (Send)", 
+            Integer.toHexString(isInitiator ? SERVER_SALT_RECV & 0xFF : 0),
+            Integer.toHexString(isInitiator ? SERVER_SALT_SEND & 0xFF : 1));
     }
 
     private byte[] encodeTo96Bytes(BigInteger n) {

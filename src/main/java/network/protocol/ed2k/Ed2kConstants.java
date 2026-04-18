@@ -66,9 +66,6 @@ public final class Ed2kConstants {
     /** Nombre de etiqueta para la versión del cliente. */
     public static final byte CT_VERSION = 0x11;
     
-    /** Nombre de etiqueta para versión secundaria (ID 0x01). */
-    public static final byte CT_VERSION_01 = 0x01;
-    
     /** Nombre de etiqueta para versión eMule (ID 0xFB). */
     public static final byte CT_EMULE_VERSION = (byte) 0xFB;
     
