@@ -70,6 +70,11 @@ public abstract class Ed2kMessage {
             case Ed2kConstants.OP_LOGINREQUEST -> LoginRequest.decode(in); // 0x01
 
             case Ed2kConstants.OP_LOGINRESPONSE -> LoginResponse.decode(in); // 0x02
+            
+            case Ed2kConstants.OP_SERVERMESSAGE -> ServerMessage.decode(in); // 0x38
+            
+            case Ed2kConstants.OP_SERVERSTATUS -> ServerStatusMessage.decode(in); // 0x40
+
             // Se añadirán más opcodes aquí
 
             default ->

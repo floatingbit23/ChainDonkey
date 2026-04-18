@@ -64,7 +64,28 @@ public class Ed2kCodec extends ByteToMessageCodec<Ed2kMessage> {
         // Restaurar el índice de escritura al final del paquete
         out.writerIndex(endIndex);
 
-        logger.info("Enviando mensaje eD2K: {} (Opcode: 0x{})", msg.getClass().getSimpleName(), String.format("%02X", msg.getOpcode()));
+        if (logger.isDebugEnabled()) {
+            byte[] packetBytes = new byte[endIndex - startIndex];
+            out.getBytes(startIndex, packetBytes);
+            
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : packetBytes) {
+                hexString.append(String.format("%02X ", b));
+            }
+            logger.info("Enviando mensaje eD2K: {} (Opcode: 0x{}). Hex: {}", 
+                msg.getClass().getSimpleName(), 
+                String.format("%02X", msg.getOpcode()),
+                hexString.toString());
+        }
+        
+        // TEMPORARY: always print hex dump for debugging
+        byte[] debugBytes = new byte[endIndex - startIndex];
+        out.getBytes(startIndex, debugBytes);
+        StringBuilder sb = new StringBuilder();
+        for (byte b : debugBytes) {
+            sb.append(String.format("%02X ", b));
+        }
+        System.out.println("[HEX DUMP] " + msg.getClass().getSimpleName() + " : " + sb.toString());
     }
 
     /**
@@ -89,16 +110,14 @@ public class Ed2kCodec extends ByteToMessageCodec<Ed2kMessage> {
         // Leemos el Magic Byte
         byte magicByte = in.readByte(); 
         
-        // DEBUG: Ver qué estamos recibiendo realmente (útil para ver si viene comprimido u otros protocolos)
-        if (logger.isDebugEnabled() || true) { // Forzamos por ahora para el test real
-             logger.info("[DEBUG] Byte recibido del servidor: 0x{}", String.format("%02X", magicByte));
-        }
+        logger.info("[DEBUG] Ed2kCodec.decode - Bytes disponibles: {}, MagicByte leído: 0x{}", in.readableBytes() + 1, String.format("%02X", magicByte));
 
         // Verificamos si el Magic Byte es correcto
         if (magicByte != Ed2kConstants.PR_EDONKEY && magicByte != Ed2kConstants.PR_EMULE) {
             // Si hay violación del protocolo, omitimos el Magic Byte e intentamos de nuevo en la siguiente sincronización.
+            logger.warn("[DEBUG] Magic Byte inválido: 0x{}. Descartando 1 byte para realinear.", String.format("%02X", magicByte));
             in.resetReaderIndex();
-            in.readByte(); // Avanza el índice de lectura para saltar el Magic Byte incorrecto.
+            in.readByte(); // Descartar este byte
             return;
         }
 

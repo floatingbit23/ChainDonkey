@@ -29,6 +29,12 @@ public final class Ed2kConstants {
     /** Opcode de respuesta de inicio de sesión enviado de servidor a cliente. */
     public static final byte OP_LOGINRESPONSE = 0x4C;
 
+    /** Opcode de estado del servidor (contiene el ID del cliente). */
+    public static final byte OP_SERVERSTATUS = 0x40;
+
+    /** Opcode de mensaje de texto enviado por el servidor. */
+    public static final byte OP_SERVERMESSAGE = 0x38;
+
     // --- Tipos de Etiquetas (Tags) ---
 
     /** Tipo de etiqueta para entero de 1 byte. */
@@ -59,6 +65,12 @@ public final class Ed2kConstants {
     
     /** Nombre de etiqueta para la versión del cliente. */
     public static final byte CT_VERSION = 0x11;
+    
+    /** Nombre de etiqueta para versión secundaria (ID 0x01). */
+    public static final byte CT_VERSION_01 = 0x01;
+    
+    /** Nombre de etiqueta para versión eMule (ID 0xFB). */
+    public static final byte CT_EMULE_VERSION = (byte) 0xFB;
     
     /** Nombre de etiqueta para las banderas de capacidades del servidor. */
     public static final byte CT_SERVER_FLAGS = 0x20;

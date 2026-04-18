@@ -103,15 +103,16 @@ public class NodeIdentity {
      * @return un nuevo array aleatorio de 16 bytes
      */
     private byte[] generateRandomUserHash() {
-
-        byte[] hash = new byte[16]; // Creamos un array de 16 bytes (128 bits)
-        new Random().nextBytes(hash); // Llenamos el array con bytes aleatorios
+        byte[] hash = new byte[16];
+        new java.security.SecureRandom().nextBytes(hash);
+        // Byte 6 (índice 5) = 0x14 indica que el cliente soporta compresión zlib y extensiones modernas
+        hash[5] = 0x14;
         
-        // El protocolo eMule convencionalmente establece el 6º byte en 14 para marcar un hash Scriptográficamente seguro.
-        // Simulamos esa estructura para la máxima compatibilidad.
-        hash[5] = 14; 
+        StringBuilder hex = new StringBuilder();
+        for (byte b : hash) hex.append(String.format("%02X", b));
+        logger.info("UserHash generado: {}", hex.toString());
         
-        return hash; // Devolvemos el hash generado
+        return hash;
     }
 }
 

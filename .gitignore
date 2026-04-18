@@ -54,3 +54,4 @@ node.identity
 
 # Internal Testing Files
 test_servers.py
+debug_log.txt
