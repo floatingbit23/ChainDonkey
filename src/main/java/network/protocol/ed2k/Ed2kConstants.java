@@ -29,11 +29,17 @@ public final class Ed2kConstants {
     /** Opcode de respuesta de inicio de sesión enviado de servidor a cliente. */
     public static final byte OP_LOGINRESPONSE = 0x4C;
 
-    /** Opcode de estado del servidor (contiene el ID del cliente). */
-    public static final byte OP_SERVERSTATUS = 0x40;
+    /** Opcode de asignacion de ID enviado de servidor a cliente. */
+    public static final byte OP_IDCHANGE = 0x40;
+
+    /** Opcode de estado del servidor (usuarios/archivos). */
+    public static final byte OP_SERVERSTATUS = 0x34;
 
     /** Opcode de mensaje de texto enviado por el servidor. */
     public static final byte OP_SERVERMESSAGE = 0x38;
+
+    /** Opcode para solicitar la lista de servidores. */
+    public static final byte OP_GETSERVERLIST = 0x14;
 
     // --- Tipos de Etiquetas (Tags) ---
 

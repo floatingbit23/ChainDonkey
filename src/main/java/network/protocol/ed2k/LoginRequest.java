@@ -3,6 +3,9 @@ package network.protocol.ed2k;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import io.netty.buffer.ByteBuf;
 
 /**
@@ -13,6 +16,7 @@ import io.netty.buffer.ByteBuf;
  */
 
 public class LoginRequest extends Ed2kMessage {
+    private static final Logger logger = LoggerFactory.getLogger(LoginRequest.class);
 
     private final byte[] userHash; // 16 bytes
     private final long clientId; // 4 bytes
@@ -76,7 +80,6 @@ public class LoginRequest extends Ed2kMessage {
 
     @Override
     public void encode(ByteBuf out) {
-
         out.writeBytes(userHash);
         out.writeIntLE((int) clientId);
         out.writeShortLE(port);
@@ -103,8 +106,10 @@ public class LoginRequest extends Ed2kMessage {
         long clientIdentifier = in.readUnsignedIntLE();
         int clientPort = in.readUnsignedShortLE();
 
-        // Algunos servidores insertan un byte de control (ej. 0x12) antes del conteo de tags
+        // Algunos servidores insertan un byte de control (ej. 0x12) antes del conteo de tags.
+        // Si no lo saltamos, leemos el contador de tags desplazado y da valores enormes.
         if (in.readableBytes() > 0 && in.getByte(in.readerIndex()) == 0x12) {
+            logger.info("Saltando byte de control 0x12 antes del conteo de tags");
             in.readByte();
         }
 

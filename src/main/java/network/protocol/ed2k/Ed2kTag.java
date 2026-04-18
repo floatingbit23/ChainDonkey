@@ -50,8 +50,7 @@ public class Ed2kTag {
 
         switch (type & ~0x80) {
             case Ed2kConstants.TAG_TYPE_UINT8 -> out.writeByte(((Number) value).intValue());
-            case Ed2kConstants.TAG_TYPE_UINT16 -> out.writeShortLE(((Number) value).intValue());
-            case Ed2kConstants.TAG_TYPE_UINT32 -> out.writeIntLE(((Number) value).intValue());
+            case Ed2kConstants.TAG_TYPE_UINT16, Ed2kConstants.TAG_TYPE_UINT32 -> out.writeIntLE(((Number) value).intValue());
             case Ed2kConstants.TAG_TYPE_STRING -> {
                 String s = (String) value;
                 byte[] bytes = s.getBytes(StandardCharsets.UTF_8);
@@ -65,66 +64,60 @@ public class Ed2kTag {
     }
 
     public static Ed2kTag readFromBuffer(ByteBuf in) {
+        if (in.readableBytes() < 1) return null;
         byte rawType = in.readByte();
         byte type = (byte) (rawType & ~0x80);
         byte nameId = -1;
-        String nameStr = null;
 
+        // Extraer ID o Nombre
         if ((rawType & 0x80) != 0) {
-            // Nombre de 1 byte (ID)
+            if (in.readableBytes() < 1) return null;
             nameId = in.readByte();
         } else {
-            // Nombre String con longitud de 2 bytes
+            if (in.readableBytes() < 2) return null;
             int nameLength = in.readUnsignedShortLE();
             if (nameLength <= in.readableBytes()) {
-                byte[] nameBytes = new byte[nameLength];
-                in.readBytes(nameBytes);
-                nameStr = new String(nameBytes, StandardCharsets.UTF_8);
-                // Si el nombre es de 1 byte, lo guardamos como ID de todos modos
-                if (nameLength == 1) nameId = nameBytes[0];
+                in.skipBytes(nameLength); // Saltamos strings largos de nombres
             } else {
-                logger.warn("Longitud de nombre de etiqueta {} excede los bytes disponibles.", nameLength);
+                return null; // Buffer corrupto
             }
         }
 
-        try {
-            Object value = switch (type) {
-                case Ed2kConstants.TAG_TYPE_UINT8 -> (int)in.readUnsignedByte();
-                case Ed2kConstants.TAG_TYPE_UINT32, 0x09 -> in.readUnsignedIntLE(); // 0x09 se usa como 32-bit en Sunrise
-                case Ed2kConstants.TAG_TYPE_STRING, 0x17 -> {
-                    if (in.readableBytes() < 2) yield null;
-                    int strLen = in.readUnsignedShortLE();
-                    if (strLen > 0 && strLen <= 1024 && strLen <= in.readableBytes()) {
-                        byte[] strBytes = new byte[strLen];
-                        in.readBytes(strBytes);
-                        yield new String(strBytes, StandardCharsets.UTF_8);
-                    } else {
-                        // Si la longitud es absurda, es que estamos desincronizados
-                        logger.warn("Longitud de string sospechosa ({}). Posible desincronización de tags.", strLen);
-                        yield null;
-                    }
+        Object value = null;
+        
+        // MAGIA: Strings Cortos Optimizados de eMule (Tipos 0x11 a 0x1F)
+        if (type >= 0x11 && type <= 0x1F) {
+            int strLen = type - 0x10;
+            if (in.readableBytes() >= strLen) {
+                byte[] strBytes = new byte[strLen];
+                in.readBytes(strBytes);
+                value = new String(strBytes, java.nio.charset.StandardCharsets.UTF_8);
+            } else return null;
+        } else {
+            // Tipos Estándar
+            switch (type) {
+                case 0x02 -> { // String Normal
+                    if (in.readableBytes() >= 2) {
+                        int strLen = in.readUnsignedShortLE();
+                        if (in.readableBytes() >= strLen) {
+                            byte[] strBytes = new byte[strLen];
+                            in.readBytes(strBytes);
+                            value = new String(strBytes, java.nio.charset.StandardCharsets.UTF_8);
+                        } else return null;
+                    } else return null;
                 }
-                case Ed2kConstants.TAG_TYPE_FLOAT -> in.readFloatLE();
-                case Ed2kConstants.TAG_TYPE_HASH -> {
-                    if (in.readableBytes() >= 16) {
-                        byte[] hashBytes = new byte[16];
-                        in.readBytes(hashBytes);
-                        yield hashBytes;
-                    } else {
-                        yield null;
-                    }
+                case 0x03, 0x09 -> { // Integers (Sunrise usa 0x09 como UInt32)
+                    if (in.readableBytes() >= 4) value = in.readUnsignedIntLE();
+                    else return null;
                 }
-                default -> {
-                    logger.warn("Tipo de etiqueta desconocido: 0x{} (Raw: 0x{})", String.format("%02X", type), String.format("%02X", rawType));
-                    yield null;
+                case 0x08 -> { // Byte
+                    if (in.readableBytes() >= 1) value = (int)in.readUnsignedByte();
+                    else return null;
                 }
-            };
-            return new Ed2kTag(type, nameId, value);
-        } catch (Exception e) {
-            logger.error("Error al decodificar etiqueta (Tipo: 0x{}, ID: 0x{}): {}", 
-                String.format("%02X", type), String.format("%02X", nameId), e.getMessage());
-            return null; // Devolvemos null para indicar que este tag falló
+                default -> { return null; } // Tipo desconocido -> Abortamos tag para no desincronizar
+            }
         }
+        return new Ed2kTag(type, nameId, value);
     }
 
     @Override

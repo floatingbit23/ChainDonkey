@@ -1,0 +1,73 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] --------------------< com.chaindonkey:ChainDonkey >---------------------
+[INFO] Building ChainDonkey 1.0-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- resources:3.4.0:resources (default-resources) @ ChainDonkey ---
+[INFO] Copying 3 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ ChainDonkey ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- resources:3.4.0:testResources (default-testResources) @ ChainDonkey ---
+[INFO] skip non existing resourceDirectory C:\Users\user\Coding\ChainDonkey\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ ChainDonkey ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ ChainDonkey ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running simpleblockchain.RealServerConnectionTest
+[main] INFO simpleblockchain.RealServerConnectionTest - [TEST] Configuracion: 176.123.5.89:4725
+[main] INFO network.node.NodeIdentity - UserHash Estatico configurado (v0.60)
+[main] INFO network.node.NodeIdentity - Nueva identidad generada y guardada en 'node.identity'
+[main] INFO simpleblockchain.RealServerConnectionTest - [LISTENER] Escuchando en el puerto 4662 con soporte de ofuscacion.
+[main] INFO simpleblockchain.RealServerConnectionTest - [TEST] Iniciando intento de conexion a 176.123.5.89:4725...
+[nioEventLoopGroup-2-1] INFO network.protocol.ed2k.Ed2kObfuscationHandler - [OBFUSCATION] Iniciando Handshake Diffie-Hellman (Iniciador)...
+[nioEventLoopGroup-2-1] INFO network.protocol.ed2k.Ed2kObfuscationHandler - [OBFUSCATION] Motores RC4 inicializados con el Salto de Oro de 1024 bytes.
+[nioEventLoopGroup-2-1] INFO network.protocol.ed2k.Ed2kObfuscationHandler - [OBFUSCATION] Magic del servidor verificado (pos 1024).
+[nioEventLoopGroup-2-1] INFO network.protocol.ed2k.Ed2kObfuscationHandler - [OBFUSCATION] Negociacion recibida del servidor: 00 00
+[nioEventLoopGroup-2-1] INFO network.protocol.ed2k.Ed2kObfuscationHandler - [OBFUSCATION] Handshake (Magic + Neg) completado. Tunel sincronizado.
+[nioEventLoopGroup-2-1] INFO simpleblockchain.RealServerConnectionTest - [TEST] Configuracion: 176.123.5.89:4725
+[nioEventLoopGroup-2-1] INFO simpleblockchain.RealServerConnectionTest - [TEST] Conectado al servidor. Enviando LoginRequest...
+[nioEventLoopGroup-2-1] INFO network.protocol.ed2k.Ed2kCodec - [CODEC] Intentando decodificar. Bytes disponibles: 10
+[nioEventLoopGroup-2-2] INFO simpleblockchain.RealServerConnectionTest - [LISTENER] Recibida conexion entrante desde /176.123.5.89:36094 (callback del servidor)
+[nioEventLoopGroup-2-2] INFO network.protocol.ed2k.Ed2kObfuscationHandler - [OBFUSCATION] Modo RESPONDER activo.
+[nioEventLoopGroup-2-2] INFO simpleblockchain.RealServerConnectionTest - [LISTENER] Conexion establecida. Esperando OP_HELLO del servidor...
+[nioEventLoopGroup-2-2] INFO network.protocol.ed2k.Ed2kObfuscationHandler - [OBFUSCATION] Primer byte recibido: 0xE3
+[nioEventLoopGroup-2-2] INFO network.protocol.ed2k.Ed2kObfuscationHandler - [OBFUSCATION] Detectado texto PLANO. Retirando handler de ofuscacion.
+[nioEventLoopGroup-2-2] INFO network.protocol.ed2k.Ed2kCodec - [CODEC] Intentando decodificar. Bytes disponibles: 60
+[nioEventLoopGroup-2-2] INFO network.protocol.ed2k.Ed2kCodec - Recibido opcode eD2K: 0x01
+[nioEventLoopGroup-2-2] INFO simpleblockchain.RealServerConnectionTest - [LISTENER] Recibido mensaje del servidor en el puerto 4662: LoginRequest
+[nioEventLoopGroup-2-2] INFO simpleblockchain.RealServerConnectionTest - [LISTENER] OP_HELLO recibido. Hash: 10ec31a8a20d0e7732bbb0ba2132e66f, ID: 91992223, Tags: 2
+[nioEventLoopGroup-2-2] INFO simpleblockchain.RealServerConnectionTest - [LISTENER] Enviando OP_HELLOANSWER (0x4C) como respuesta...
+[nioEventLoopGroup-2-1] INFO network.protocol.ed2k.Ed2kCodec - Recibido opcode eD2K: 0x40
+[nioEventLoopGroup-2-1] INFO simpleblockchain.RealServerConnectionTest - [TEST] Mensaje eD2K recibido: 0x4C
+[nioEventLoopGroup-2-1] INFO simpleblockchain.RealServerConnectionTest - [TEST] ID asignado: 999999999 (HighID)
+[nioEventLoopGroup-2-1] INFO simpleblockchain.RealServerConnectionTest - [SERVER STATUS] Usuarios: 35938, Archivos: 12540903
+[nioEventLoopGroup-2-1] WARN simpleblockchain.RealServerConnectionTest - [SERVER MESSAGE] El servidor dice: server version 17.15 (lugdunum)
+Welcome to eMule Sunrise!
+Disclaimer: This server is indexing file-hashes only, does not contains any files and
+it is not directly involved in the exchange of files between users of P2P network.
+Administration of server is not responsible for the contents of files
+shared by users connected to the server. Please do not share
+copyrighted material, DRM protected media, viruses or other harmful files!
+[nioEventLoopGroup-2-1] WARN simpleblockchain.RealServerConnectionTest - [TEST] La conexion TCP fue cerrada por el servidor.
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.644 s -- in simpleblockchain.RealServerConnectionTest
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 1, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  4.005 s
+[INFO] Finished at: 2026-04-18T17:54:54+02:00
+[INFO] ------------------------------------------------------------------------
