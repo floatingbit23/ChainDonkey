@@ -44,11 +44,11 @@ public class Ed2kTag {
      * @param out el búfer al que escribir
      */
     public void writeToBuffer(ByteBuf out) {
-        out.writeByte(type);
-        out.writeShortLE(1); // Por ahora siempre usamos nombres de 1 byte (ID de etiqueta)
+        // Marcamos el tipo con 0x80 para indicar que el nombre es un solo byte (ID)
+        out.writeByte(type | (byte)0x80);
         out.writeByte(name);
 
-        switch (type) {
+        switch (type & ~0x80) {
             case Ed2kConstants.TAG_TYPE_UINT8 -> out.writeByte(((Number) value).intValue());
             case Ed2kConstants.TAG_TYPE_UINT16 -> out.writeShortLE(((Number) value).intValue());
             case Ed2kConstants.TAG_TYPE_UINT32 -> out.writeIntLE(((Number) value).intValue());
@@ -65,34 +65,42 @@ public class Ed2kTag {
     }
 
     public static Ed2kTag readFromBuffer(ByteBuf in) {
-        byte type = in.readByte();
-        int nameLength = in.readUnsignedShortLE();
+        byte rawType = in.readByte();
+        byte type = (byte) (rawType & ~0x80);
         byte nameId = -1;
+        String nameStr = null;
 
-        if (nameLength == 1 && in.readableBytes() >= 1) {
+        if ((rawType & 0x80) != 0) {
+            // Nombre de 1 byte (ID)
             nameId = in.readByte();
         } else {
-            logger.info("Omitiendo etiqueta eD2K con nombre de longitud no estándar: {} bytes", nameLength);
-            if (nameLength > 0 && nameLength <= in.readableBytes()) {
-                in.skipBytes(nameLength);
+            // Nombre String con longitud de 2 bytes
+            int nameLength = in.readUnsignedShortLE();
+            if (nameLength <= in.readableBytes()) {
+                byte[] nameBytes = new byte[nameLength];
+                in.readBytes(nameBytes);
+                nameStr = new String(nameBytes, StandardCharsets.UTF_8);
+                // Si el nombre es de 1 byte, lo guardamos como ID de todos modos
+                if (nameLength == 1) nameId = nameBytes[0];
             } else {
-                logger.warn("Longitud de etiqueta {} excede los bytes disponibles.", nameLength);
+                logger.warn("Longitud de nombre de etiqueta {} excede los bytes disponibles.", nameLength);
             }
         }
 
         try {
             Object value = switch (type) {
-                case Ed2kConstants.TAG_TYPE_UINT8 -> in.readUnsignedByte();
-                case Ed2kConstants.TAG_TYPE_UINT16 -> in.readUnsignedShortLE();
-                case Ed2kConstants.TAG_TYPE_UINT32 -> in.readUnsignedIntLE();
-                case Ed2kConstants.TAG_TYPE_STRING -> {
+                case Ed2kConstants.TAG_TYPE_UINT8 -> (int)in.readUnsignedByte();
+                case Ed2kConstants.TAG_TYPE_UINT32, 0x09 -> in.readUnsignedIntLE(); // 0x09 se usa como 32-bit en Sunrise
+                case Ed2kConstants.TAG_TYPE_STRING, 0x17 -> {
+                    if (in.readableBytes() < 2) yield null;
                     int strLen = in.readUnsignedShortLE();
-                    if (strLen <= in.readableBytes()) {
+                    if (strLen > 0 && strLen <= 1024 && strLen <= in.readableBytes()) {
                         byte[] strBytes = new byte[strLen];
                         in.readBytes(strBytes);
                         yield new String(strBytes, StandardCharsets.UTF_8);
                     } else {
-                        logger.warn("Longitud de string {} excede los bytes disponibles.", strLen);
+                        // Si la longitud es absurda, es que estamos desincronizados
+                        logger.warn("Longitud de string sospechosa ({}). Posible desincronización de tags.", strLen);
                         yield null;
                     }
                 }
@@ -106,12 +114,16 @@ public class Ed2kTag {
                         yield null;
                     }
                 }
-                default -> null;
+                default -> {
+                    logger.warn("Tipo de etiqueta desconocido: 0x{} (Raw: 0x{})", String.format("%02X", type), String.format("%02X", rawType));
+                    yield null;
+                }
             };
             return new Ed2kTag(type, nameId, value);
         } catch (Exception e) {
-            logger.error("Error al decodificar el valor de la etiqueta tipo 0x{}: {}", String.format("%02X", type), e.getMessage());
-            return new Ed2kTag(type, nameId, null);
+            logger.error("Error al decodificar etiqueta (Tipo: 0x{}, ID: 0x{}): {}", 
+                String.format("%02X", type), String.format("%02X", nameId), e.getMessage());
+            return null; // Devolvemos null para indicar que este tag falló
         }
     }
 

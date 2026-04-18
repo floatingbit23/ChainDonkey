@@ -46,6 +46,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         INITIATOR_SEND_DH_PUB,
         INITIATOR_WAIT_DH_ANSWER,
         RESPONDER_WAIT_DH_PUB,
+        WAIT_HANDSHAKE_START,
         WAIT_MAGIC,
         WAIT_METHODS,
         WAIT_PADDING,
@@ -66,7 +67,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
 
     public Ed2kObfuscationHandler(boolean initiator) {
         this.initiator = initiator;
-        this.state = initiator ? State.INITIATOR_SEND_DH_PUB : State.RESPONDER_WAIT_DH_PUB;
+        this.state = initiator ? State.INITIATOR_SEND_DH_PUB : State.WAIT_HANDSHAKE_START;
     }
 
     @Override
@@ -129,10 +130,30 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                 state = State.WAIT_MAGIC;
                 decode(ctx, in, out);
             }
+            case WAIT_HANDSHAKE_START -> {
+                if (in.readableBytes() < 1) return;
+                byte first = in.getByte(in.readerIndex());
+                logger.info("[OBFUSCATION] Primer byte recibido: 0x{}", String.format("%02X", first));
+                
+                // Si el primer byte es un opcode eD2K estándar (0xE3, 0xC5, 0xD4),
+                // el servidor nos está hablando en PLANO. Nos retiramos.
+                if (first == (byte)0xE3 || first == (byte)0xC5 || first == (byte)0xD4) {
+                    logger.info("[OBFUSCATION] Detectado texto PLANO. Retirando handler de ofuscación.");
+                    ctx.pipeline().remove(this);
+                    return;
+                }
+
+                if (first == 0x01 || first == 0x02 || first == 0x03) {
+                    state = State.RESPONDER_WAIT_DH_PUB;
+                    decode(ctx, in, out);
+                }
+            }
             case WAIT_MAGIC -> {
                 if (in.readableBytes() < 4) return;
                 byte[] magicBytes = new byte[4];
                 in.readBytes(magicBytes);
+                
+                // Magic del servidor a pos 1024 (descarte inicial en initCiphers)
                 byte[] decryptedMagic = rc4Receive.update(magicBytes);
                 long magic = ((decryptedMagic[3] & 0xFFL) << 24) | 
                              ((decryptedMagic[2] & 0xFFL) << 16) | 
@@ -142,34 +163,39 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                 if (magic != (MAGICVALUE_SYNC & 0xFFFFFFFFL)) {
                     StringBuilder sb = new StringBuilder();
                     for (byte b : decryptedMagic) sb.append(String.format("%02X ", b));
-                    logger.error("[OBFUSCATION] Magic mismatch! Recibido 0x{} (Bytes: {})", Long.toHexString(magic).toUpperCase(), sb.toString());
-                    throw new IllegalStateException("Obfuscation Magic Value mismatch!");
+                    logger.error("[OBFUSCATION] Magic mismatch at pos 1024! Recibido 0x{} (Bytes: {})", Long.toHexString(magic).toUpperCase(), sb.toString());
+                    throw new IllegalStateException("Obfuscation Magic Value mismatch at pos 1024!");
                 }
                 
+                logger.info("[OBFUSCATION] Magic del servidor verificado (pos 1024).");
                 state = State.WAIT_METHODS;
                 decode(ctx, in, out);
             }
             case WAIT_METHODS -> {
-                int bytesWanted = initiator ? 2 : 3;
-                if (in.readableBytes() < bytesWanted) return;
-                byte[] methodsBytes = new byte[bytesWanted];
-                in.readBytes(methodsBytes);
-                byte[] dec = rc4Receive.update(methodsBytes);
-                expectedPadding = dec[bytesWanted - 1] & 0xFF;
-                state = State.WAIT_PADDING;
-                decode(ctx, in, out);
-            }
-            case WAIT_PADDING -> {
-                if (in.readableBytes() < expectedPadding) return;
-                if (expectedPadding > 0) {
-                    byte[] padding = new byte[expectedPadding];
+                if (in.readableBytes() < 2) return; // Protocolo (1) + PaddingLen (1)
+                byte[] block = new byte[2];
+                in.readBytes(block);
+                byte[] decBlock = rc4Receive.update(block);
+                logger.info("[OBFUSCATION] Negociación recibida del servidor: {} {}", String.format("%02X", decBlock[0]), String.format("%02X", decBlock[1]));
+                
+                int paddingLen = decBlock[1] & 0xFF;
+                if (paddingLen > 0) {
+                    if (in.readableBytes() < paddingLen) {
+                        in.resetReaderIndex();
+                        return;
+                    }
+                    byte[] padding = new byte[paddingLen];
                     in.readBytes(padding);
                     rc4Receive.update(padding);
                 }
                 
-                if (!initiator) sendHandshakeMagic(ctx, false);
+                state = State.WAIT_PADDING;
+                decode(ctx, in, out);
+            }
+            case WAIT_PADDING -> {
+                // El padding ya se procesó en WAIT_METHODS si existía
+                logger.info("[OBFUSCATION] Handshake (Magic + Neg) completado. Túnel sincronizado.");
                 
-                logger.info("[OBFUSCATION] Handshake completado exitosamente.");
                 state = State.ENCRYPTING;
                 ctx.fireChannelActive();
                 decode(ctx, in, out);
@@ -198,24 +224,25 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
 
     private void sendHandshakeMagic(ChannelHandlerContext ctx, boolean isInit) {
         ByteBuf out = ctx.alloc().buffer();
+        
+        // 1. Magic (4 bytes) - Pos 0-3
         out.writeIntLE(MAGICVALUE_SYNC);
-        if (isInit) {
-            out.writeByte(0x01); // 1 método
-            out.writeByte(0x01); // RC4
-        } else {
-            out.writeByte(0x01); // RC4 seleccionado
-        }
-        int paddingLen = random.nextInt(32);
-        out.writeByte(paddingLen);
-        if (paddingLen > 0) {
-            byte[] padding = new byte[paddingLen];
-            random.nextBytes(padding);
-            out.writeBytes(padding);
-        }
+        
+        // 2. Negociación (2 bytes) - Pos 4-5
+        out.writeByte(0x00); // Protocolo eDonkey
+        out.writeByte(0x00); // Padding Length 0
         
         byte[] plain = new byte[out.readableBytes()];
         out.readBytes(plain);
         ctx.writeAndFlush(ctx.alloc().buffer().writeBytes(rc4Send.update(plain)));
+        out.release();
+    }
+
+    /**
+     * El descarte manual se ha movido a la lógica asimétrica para mayor claridad.
+     */
+    private void discard1024() {
+        // Obsoleto, integrado en initCiphers y decode
     }
 
     private void initCiphers(ChannelHandlerContext ctx, byte[] sBytes, boolean isInitiator) {
@@ -226,16 +253,14 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         // Clave de Recepción
         buffer[PRIMESIZE_BYTES] = isInitiator ? SERVER_SALT_RECV : (byte)0x00;
         rc4Receive = new Cipher(new MD5Sum(buffer).GetRawHash());
-        rc4Receive.update(new byte[1024]); // Descarte de 1024 bytes (Confirmado por brute-force)
+        rc4Receive.update(new byte[1024]); // El Salto Único Inicial
 
         // Clave de Envío
         buffer[PRIMESIZE_BYTES] = isInitiator ? SERVER_SALT_SEND : (byte)0x01;
         rc4Send = new Cipher(new MD5Sum(buffer).GetRawHash());
-        rc4Send.update(new byte[1024]); // Descarte de 1024 bytes
+        rc4Send.update(new byte[1024]); // El Salto Único Inicial
         
-        logger.info("[OBFUSCATION] Cifrados inicializados con sales 0x{} (Recv) / 0x{} (Send)", 
-            Integer.toHexString(isInitiator ? SERVER_SALT_RECV & 0xFF : 0),
-            Integer.toHexString(isInitiator ? SERVER_SALT_SEND & 0xFF : 1));
+        logger.info("[OBFUSCATION] Motores RC4 inicializados con el Salto de Oro de 1024 bytes.");
     }
 
     private byte[] encodeTo96Bytes(BigInteger n) {

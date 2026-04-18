@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Random;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -104,14 +103,13 @@ public class NodeIdentity {
      */
     private byte[] generateRandomUserHash() {
         byte[] hash = new byte[16];
-        new java.security.SecureRandom().nextBytes(hash);
-        // Byte 6 (índice 5) = 0x14 indica que el cliente soporta compresión zlib y extensiones modernas
-        hash[5] = 0x14;
+        // Hash estándar que imita a un cliente eMule v0.60 estable
+        hash[0] = (byte)0xE3; hash[1] = 0x11; hash[2] = 0x22; hash[3] = 0x33;
+        hash[4] = 0x44; hash[5] = 0x3C; hash[6] = 0x66; hash[7] = 0x77;
+        hash[8] = (byte)0x88; hash[9] = (byte)0x99; hash[10] = (byte)0xAA; hash[11] = (byte)0xBB;
+        hash[12] = (byte)0xCC; hash[13] = (byte)0xDD; hash[14] = (byte)0xEE; hash[15] = (byte)0xFF;
         
-        StringBuilder hex = new StringBuilder();
-        for (byte b : hash) hex.append(String.format("%02X", b));
-        logger.info("UserHash generado: {}", hex.toString());
-        
+        logger.info("UserHash Estático configurado (v0.60)");
         return hash;
     }
 }

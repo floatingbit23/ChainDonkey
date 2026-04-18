@@ -42,6 +42,7 @@ public class Ed2kCodec extends ByteToMessageCodec<Ed2kMessage> {
         ByteBuf payload = in.readSlice(length - 1);
 
         Ed2kMessage message = switch (opcode) {
+            case Ed2kConstants.OP_LOGINREQUEST -> LoginRequest.decode(payload);
             case Ed2kConstants.OP_LOGINRESPONSE -> LoginResponse.decode(payload);
             case Ed2kConstants.OP_SERVERSTATUS -> ServerStatusMessage.decode(payload);
             case Ed2kConstants.OP_SERVERMESSAGE -> ServerMessage.decode(payload);
@@ -65,12 +66,5 @@ public class Ed2kCodec extends ByteToMessageCodec<Ed2kMessage> {
         msg.encode(out);
         int length = out.writerIndex() - startPos;
         out.setIntLE(lengthPos, length);
-        
-        // Log Hex Dump
-        byte[] bytes = new byte[out.readableBytes()];
-        out.getBytes(out.readerIndex(), bytes);
-        StringBuilder sb = new StringBuilder();
-        for (byte b : bytes) sb.append(String.format("%02X ", b));
-        logger.info("[HEX DUMP] {}: {}", msg.getClass().getSimpleName(), sb.toString());
     }
 }

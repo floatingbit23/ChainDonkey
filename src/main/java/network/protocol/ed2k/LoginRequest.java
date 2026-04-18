@@ -103,7 +103,12 @@ public class LoginRequest extends Ed2kMessage {
         long clientIdentifier = in.readUnsignedIntLE();
         int clientPort = in.readUnsignedShortLE();
 
-        // Leemos el número de tags
+        // Algunos servidores insertan un byte de control (ej. 0x12) antes del conteo de tags
+        if (in.readableBytes() > 0 && in.getByte(in.readerIndex()) == 0x12) {
+            in.readByte();
+        }
+
+        // Leemos el número de tags (puede ser un entero de 4 bytes)
         int tagCount = in.readIntLE();
 
         // Instanciamos una lista para guardar los tags
@@ -111,7 +116,10 @@ public class LoginRequest extends Ed2kMessage {
 
         // Leemos cada tag
         for (int i = 0; i < tagCount; i++) {
-            parsedTags.add(Ed2kTag.readFromBuffer(in));
+            Ed2kTag tag = Ed2kTag.readFromBuffer(in);
+            if (tag != null) {
+                parsedTags.add(tag);
+            }
         }
         
         // Creamos y devolvemos el objeto

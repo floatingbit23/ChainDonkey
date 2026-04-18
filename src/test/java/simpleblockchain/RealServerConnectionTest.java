@@ -70,17 +70,14 @@ public class RealServerConnectionTest {
                       ch.pipeline().addLast(new SimpleChannelInboundHandler<Ed2kMessage>() {
                           @Override
                           public void channelActive(ChannelHandlerContext ctx) {
-                              logger.info("[LISTENER] Handshake de ofuscación completado. Enviando OP_HELLO...");
+                              logger.info("[LISTENER] Conexión establecida. Rompiendo el hielo con OP_HELLO...");
                               
                               List<Ed2kTag> helloTags = new ArrayList<>();
                               helloTags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_STRING, Ed2kConstants.CT_NAME, "ChainDonkey_Alpha"));
                               helloTags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_VERSION, 60));
                               helloTags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_EMULE_VERSION, 0x003C0100));
                               
-                              LoginRequest hello = new LoginRequest(
-                                      identity.getUserHash(),
-                                      0, 4662, helloTags
-                              );
+                              LoginRequest hello = new LoginRequest(identity.getUserHash(), 0, 4662, helloTags);
                               ctx.writeAndFlush(hello);
                           }
                           @Override
@@ -115,8 +112,6 @@ public class RealServerConnectionTest {
                              List<Ed2kTag> tags = new ArrayList<>();
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_STRING, Ed2kConstants.CT_NAME, "ChainDonkey_Alpha"));
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_VERSION, 60));
-                             tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_EMULE_VERSION, 0x003C0100));
-                             tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_SERVER_FLAGS, 0x1D));
 
                              LoginRequest login = new LoginRequest(
                                      identity.getUserHash(),
@@ -159,7 +154,7 @@ public class RealServerConnectionTest {
             logger.info("[TEST] Iniciando intento de conexión a {}:{}...", SERVER_IP, SERVER_PORT);
             ChannelFuture f = b.connect(SERVER_IP, SERVER_PORT).sync();
             
-            boolean completed = latch.await(30, TimeUnit.SECONDS);
+            boolean completed = latch.await(60, TimeUnit.SECONDS);
             
             if (!completed) {
                 logger.warn("[TEST] El servidor no respondió a tiempo o la conexión falló.");
