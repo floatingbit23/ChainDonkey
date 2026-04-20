@@ -8,14 +8,14 @@ ChainDonkey es una infraestructura de almacenamiento descentralizado desarrollad
 
 - **Motor de Consenso**: Implementación de una cadena de bloques con **Proof of Work (Prueba de Trabajo)** y dificultad ajustable.
 
-- **Integridad de Datos (Merkle Tree)**: Implementación de un árbol de Merkle binario para agrupar transacciones y garantizar la integridad total de cada bloque.
+- **Integridad de Datos (_Merkle Tree_)**: Implementación de un Árbol de Merkle binario para agrupar transacciones y garantizar la integridad total de cada bloque.
 
-- **Seguridad Criptográfica (ECDSA)**: Identidad digital basada en curvas elípticas (Bouncy Castle) para la firma y verificación de transacciones.
+- **Seguridad Criptográfica (_ECDSA_)**: Identidad digital basada en curvas elípticas (_Bouncy Castle_) para la firma y verificación de transacciones.
 - **Ecosistema Moderno**: Basado en **Java 21** y gestionado con **Maven**.
 
-- **Testing Suite**: Cobertura de pruebas automatizadas con **JUnit 5** para auditar el _ledger_ (libro contable de transacciones) y prevenir fraudes.
-
-- **Logs Universales**: Sistema de registros basado en texto (`[ OK ]`, `[ FAIL ]`, `[ MINER ]`) compatible con cualquier terminal (PowerShell, Bash, CMD).
+- **Red P2P Híbrida**: Capa de transporte basada en **Netty 4.2**, compatible con los protocolos de ofuscación y transferencia de la red eD2K.
+- **Explorador Web (Dashboard)**: Interfaz visual interactiva construida con **Javalin** para auditar bloques y wallets en tiempo real.
+- **Logs Universales**: Sistema de registros basado en texto (`[ OK ]`, `[ FAIL ]`, `[ MINER ]`) compatible con cualquier terminal.
 
 ## Tecnologías utilizadas
 | Tecnología | Versión | Propósito |
@@ -25,24 +25,32 @@ ChainDonkey es una infraestructura de almacenamiento descentralizado desarrollad
 | **JUnit 5** | 5.10.x | Suite de pruebas unitarias y de integración. |
 | **Gson** | 2.11.0 | Conversión de objetos a JSON. |
 | **Bouncy Castle** | 1.83 | Librería criptográfica para firmas ECDSA. |
+| **Netty** | 4.2.x | Motor de red asíncrono para P2P. |
+| **Javalin** | 6.1.x | Framework web ligero para el Dashboard. |
 
 ## Estructura del proyecto
 Siguiendo las convenciones estándar de Maven:
 ```text
 ChainDonkey/
-├── pom.xml                # Configuración y dependencias (JUnit 5, GSON, BC)
+├── pom.xml                # Configuración y dependencias (Netty, Javalin, JUnit 5, GSON, BC)
 ├── README.md              # Documentación principal
 └── src/
-    ├── main/java/simpleblockchain/   # Lógica de producción
-    │   ├── Block.java            # Estructura del bloque y minado
-    │   ├── Transaction.java      # Lógica de pagos y firmas
-    │   ├── Wallet.java           # Generación de llaves y balances
-    │   ├── SimpleBlockchain.java # Orquestador y validación global
-    │   └── StringUtil.java       # Utilidades (Hashing, Merkle, JSON)
-    └── test/java/simpleblockchain/   # Suite de Pruebas
-        ├── BlockchainTest.java   # Tests de integridad y anti-tampering
-        ├── TransactionTest.java  # Tests de firmas y procesamiento
-        └── WalletTest.java       # Tests de llaves y balances
+    ├── main/
+    │   ├── java/
+    │   │   ├── network/           # Infraestructura de red P2P (Netty 4.2)
+    │   │   │   ├── node/          # Gestión de identidad y estado del nodo
+    │   │   │   ├── protocol/      # Lógica de protocolos (eD2K Codec, Handshake...)
+    │   │   │   └── transport/     # Servidores y clientes TCP/UDP
+    │   │   └── simpleblockchain/  # Lógica del motor de la Blockchain
+    │   │       ├── Block.java            # Estructura del bloque y minado
+    │   │       ├── BlockchainServer.java # Servidor web y API del Dashboard
+    │   │       ├── Transaction.java      # Lógica de pagos y firmas criptográficas
+    │   │       ├── Wallet.java           # Generación de llaves y balances de Wallets
+    │   │       ├── SimpleBlockchain.java # Orquestador y validación global
+    │   │       └── StringUtil.java       # Utilidades (Hashing, Merkle Tree, JSON...)
+    │   └── resources/
+    │       └── public/            # Frontend del Dashboard (HTML, CSS, app.js)
+    └── test/                      # Suite de Pruebas unitarias y de integración (JUnit 5)
 ```
 
 ## Instalación y Ejecución
@@ -78,3 +86,8 @@ El proyecto incluye verificaciones automáticas para:
 2. **Alteración de Datos (_Anti-Tampering_)**: El _Merkle Root_ (un hash que representa todas las transacciones) detectará si alguien cambia un solo bit de una transacción histórica.
 
 3. **Consistencia de la Cadena**: Verifica que todos los bloques estén correctamente enlazados mediante sus hashes previos.
+
+## Explorador de Red
+El nodo levanta automáticamente un servidor web en el puerto **7070**:
+- **Dashboard**: `http://localhost:7070`
+- **API Blockchain**: `http://localhost:7070/api/blockchain`

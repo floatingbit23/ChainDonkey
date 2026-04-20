@@ -19,7 +19,8 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.EventLoopGroup;
 import io.netty.channel.SimpleChannelInboundHandler;
-import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.MultiThreadIoEventLoopGroup;
+import io.netty.channel.nio.NioIoHandler;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -57,8 +58,8 @@ public class RealServerConnectionTest {
         CountDownLatch latch = new CountDownLatch(1);
         final LoginResponse[] receivedResponse = {null};
 
-        EventLoopGroup group = new NioEventLoopGroup();
-        EventLoopGroup bossGroup = new NioEventLoopGroup(1);
+        EventLoopGroup group = new MultiThreadIoEventLoopGroup(NioIoHandler.newFactory());
+        EventLoopGroup bossGroup = new MultiThreadIoEventLoopGroup(1, NioIoHandler.newFactory());
         
         final Wallet wallet = new Wallet();
         final NodeIdentity identity = new NodeIdentity(wallet);
@@ -83,8 +84,7 @@ public class RealServerConnectionTest {
                           protected void channelRead0(ChannelHandlerContext ctx, Ed2kMessage msg) {
                               logger.info("[LISTENER] Recibido mensaje del servidor en el puerto 4662: {}", msg.getClass().getSimpleName());
                               
-                              if (msg instanceof LoginRequest) {
-                                  LoginRequest hello = (LoginRequest) msg;
+                              if (msg instanceof LoginRequest hello) {
                                   logger.info("[LISTENER] OP_HELLO recibido. Hash: {}, ID: {}, Tags: {}", 
                                           io.netty.buffer.ByteBufUtil.hexDump(hello.getUserHash()),
                                           hello.getClientId(),
@@ -139,7 +139,7 @@ public class RealServerConnectionTest {
                  protected void initChannel(SocketChannel ch) {
                       ch.pipeline().addLast(new Ed2kObfuscationHandler(true)); // Modo INITIATOR
                       
-                      // Raw Byte Logger para depurar qu? nos env?a el servidor antes del codec
+                      // Raw Byte Logger para depurar qué nos envía el servidor antes del codec
                       ch.pipeline().addLast(new io.netty.channel.ChannelInboundHandlerAdapter() {
                           @Override
                           public void channelRead(ChannelHandlerContext ctx, Object msg) {
@@ -170,20 +170,23 @@ public class RealServerConnectionTest {
                                      0, 4662, tags
                              );
                              ctx.writeAndFlush(login);
-                         }
+                          }
 
                          @Override
                          protected void channelRead0(ChannelHandlerContext ctx, Ed2kMessage msg) {
                              logger.info("[TEST] Mensaje eD2K recibido: 0x{}", String.format("%02X", msg.getOpcode()));
-                             if (msg instanceof LoginResponse res) {
-                                 String type = res.isHighId() ? "HighID" : "LowID";
-                                 logger.info("[TEST] ID asignado: {} ({})", res.getClientId(), type);
-                                 receivedResponse[0] = res;
-                                 latch.countDown();
-                             } else if (msg instanceof ServerStatusMessage status) {
-                                 logger.info("[SERVER STATUS] Usuarios: {}, Archivos: {}", status.getUserCount(), status.getFileCount());
-                             } else if (msg instanceof ServerMessage serverMsg) {
-                                 logger.warn("[SERVER MESSAGE] El servidor dice: {}", serverMsg.getMessage());
+                             switch (msg) {
+                                 case LoginResponse res -> {
+                                     String type = res.isHighId() ? "HighID" : "LowID";
+                                     logger.info("[TEST] ID asignado: {} ({})", res.getClientId(), type);
+                                     receivedResponse[0] = res;
+                                     latch.countDown();
+                                 }
+                                 case ServerStatusMessage status ->
+                                     logger.info("[SERVER STATUS] Usuarios: {}, Archivos: {}", status.getUserCount(), status.getFileCount());
+                                 case ServerMessage serverMsg ->
+                                     logger.warn("[SERVER MESSAGE] El servidor dice: {}", serverMsg.getMessage());
+                                 default -> {}
                              }
                          }
 

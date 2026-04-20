@@ -107,7 +107,7 @@ function renderBlockchain() {
             </div>
 
             <div class="data-label">Previous Hash</div>
-            <div class="data-value address-value" onclick="event.stopPropagation(); showWalletDetails('${block.previousHash}')">${block.previousHash}</div>
+            <div class="data-value">${block.previousHash}</div>
         `;
         container.appendChild(card);
     });
@@ -188,7 +188,12 @@ function showBlockDetails(block, index) {
  * Aggregates all transactions and calculates the current balance for a PK.
  */
 function showWalletDetails(pk) {
-    if (!pk || pk === "0") return; // Skip invalid or zero addresses
+    // VALIDATION: A wallet public key (Base64 ECDSA) is always significantly longer than 
+    // a 64-character SHA-256 hash. We block any string that doesn't meet this criteria.
+    if (!pk || pk === "0" || pk.length <= 64) {
+        console.warn("[UI] Attempted to query balance of a non-wallet hash:", pk);
+        return; 
+    }
     
     const overlay = document.getElementById('modal-overlay');
     const content = document.getElementById('modal-content');

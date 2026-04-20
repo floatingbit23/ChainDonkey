@@ -83,7 +83,7 @@ public class Ed2kTag {
             }
         }
 
-        Object value = null;
+        Object value;
         
         // MAGIA: Strings Cortos Optimizados de eMule (Tipos 0x11 a 0x1F)
         if (type >= 0x11 && type <= 0x1F) {

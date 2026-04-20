@@ -6,8 +6,12 @@ import java.util.ArrayList;
 
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class BlockchainServer {
+
+    private static final Logger logger = LoggerFactory.getLogger(BlockchainServer.class);
 
     /**
      * Starts the Javalin web server on port 7070.
@@ -33,7 +37,7 @@ public class BlockchainServer {
 
         // Register a shutdown hook to clean up resources and release port 7070
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            System.out.println("[ SERVER ] Stopping Javalin...");
+            logger.info("Deteniendo servidor web Javalin...");
             app.stop();
         }));
 

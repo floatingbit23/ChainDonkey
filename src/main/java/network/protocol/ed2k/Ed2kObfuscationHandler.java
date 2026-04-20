@@ -1,7 +1,6 @@
 package network.protocol.ed2k;
 
 import java.math.BigInteger;
-import java.net.InetSocketAddress;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
@@ -58,7 +57,6 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
     private Cipher rc4Send;
     private Cipher rc4Receive;
     private BigInteger privateA;
-    private int expectedPadding = 0;
     private final SecureRandom random = new SecureRandom();
 
     public Ed2kObfuscationHandler() {
@@ -96,6 +94,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
     @Override
     protected void decode(ChannelHandlerContext ctx, ByteBuf in, List<Object> out) throws Exception {
         switch (state) {
+            case INITIATOR_SEND_DH_PUB -> {} // Solo enviamos, no esperamos recibir
             case RESPONDER_WAIT_DH_PUB -> {
                 if (in.readableBytes() < PRIMESIZE_BYTES + 1) return;
                 in.readByte(); // 0x80
@@ -107,7 +106,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                 privateA = new BigInteger(1, aBytes);
                 BigInteger publicA = G.modPow(privateA, P);
                 BigInteger sharedSecret = publicB.modPow(privateA, P);
-                initCiphers(ctx, encodeTo96Bytes(sharedSecret), false);
+                initCiphers(encodeTo96Bytes(sharedSecret), false);
                 
                 ByteBuf dhAnswer = ctx.alloc().buffer(PRIMESIZE_BYTES);
                 dhAnswer.writeBytes(encodeTo96Bytes(publicA));
@@ -122,10 +121,10 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                 in.readBytes(publicBBytes);
                 BigInteger publicB = new BigInteger(1, publicBBytes);
                 BigInteger sharedSecret = publicB.modPow(privateA, P);
-                initCiphers(ctx, encodeTo96Bytes(sharedSecret), true);
+                initCiphers(encodeTo96Bytes(sharedSecret), true);
                 
                 // Enviar Magic inmediatamente
-                sendHandshakeMagic(ctx, true);
+                sendHandshakeMagic(ctx);
                 
                 state = State.WAIT_MAGIC;
                 decode(ctx, in, out);
@@ -222,7 +221,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         out.writeBytes(rc4Send.update(plain));
     }
 
-    private void sendHandshakeMagic(ChannelHandlerContext ctx, boolean isInit) {
+    private void sendHandshakeMagic(ChannelHandlerContext ctx) {
         ByteBuf out = ctx.alloc().buffer();
         
         // 1. Magic (4 bytes) - Pos 0-3
@@ -238,14 +237,9 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         out.release();
     }
 
-    /**
-     * El descarte manual se ha movido a la lógica asimétrica para mayor claridad.
-     */
-    private void discard1024() {
-        // Obsoleto, integrado en initCiphers y decode
-    }
 
-    private void initCiphers(ChannelHandlerContext ctx, byte[] sBytes, boolean isInitiator) {
+
+    private void initCiphers(byte[] sBytes, boolean isInitiator) {
         // Para servidores, el salt es simplemente el Shared Secret (96) + Flag (1)
         byte[] buffer = new byte[PRIMESIZE_BYTES + 1];
         System.arraycopy(sBytes, 0, buffer, 0, PRIMESIZE_BYTES);
@@ -253,7 +247,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         // Clave de Recepción
         buffer[PRIMESIZE_BYTES] = isInitiator ? SERVER_SALT_RECV : (byte)0x00;
         rc4Receive = new Cipher(new MD5Sum(buffer).GetRawHash());
-        rc4Receive.update(new byte[1024]); // El Salto Único Inicial
+        rc4Receive.update(new byte[1024]); // El Salto de 1024 bytes
 
         // Clave de Envío
         buffer[PRIMESIZE_BYTES] = isInitiator ? SERVER_SALT_SEND : (byte)0x01;

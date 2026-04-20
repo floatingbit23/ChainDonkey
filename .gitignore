@@ -55,3 +55,7 @@ node.identity
 # Internal Testing Files
 test_servers.py
 debug_log.txt
+src/test/java/network/transport/PeerIntegrationTest.java
+
+# Internal Plans
+*implementation_plan*
