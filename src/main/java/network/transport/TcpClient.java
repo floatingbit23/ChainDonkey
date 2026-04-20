@@ -35,9 +35,10 @@ public class TcpClient {
      * Método que conecta a un host y puerto remotos.
      * @param host Dirección IP o dominio.
      * @param port Puerto TCP.
+     * @param targetUserHash Hash del usuario destino (opcional, null si no aplica).
      * @return Un ChannelFuture que permite monitorizar el progreso de la conexión.
      */
-    public ChannelFuture connect(String host, int port) {
+    public ChannelFuture connect(String host, int port, byte[] targetUserHash) {
         
         // Bootstrap es una clase ayudante que facilita la creación de Channels
         Bootstrap b = new Bootstrap();
@@ -58,8 +59,9 @@ public class TcpClient {
             // Método que se ejecuta cuando se crea un nuevo canal
              @Override
              public void initChannel(SocketChannel ch) {
-                 // El cliente siempre usa ofuscación en modo INICIADOR 
-                 ch.pipeline().addLast(new Ed2kObfuscationHandler(true)); // true = modo INICIADOR
+                 // El cliente siempre usa ofuscación en modo INICIADOR. 
+                 // Si hay un targetUserHash, lo usamos para el protocolo Peer (isServer=false).
+                 ch.pipeline().addLast(new Ed2kObfuscationHandler(true, targetUserHash)); // true = modo INICIADOR, targetUserHash = hash del usuario destino (Opcional)
                  ch.pipeline().addLast(new Ed2kCodec()); // Decodificador y codificador de eD2K
 
                  // TO DO: Aquí añadiremos los otros handlers cuando los implementemos

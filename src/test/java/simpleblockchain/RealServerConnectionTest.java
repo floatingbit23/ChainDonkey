@@ -65,7 +65,7 @@ public class RealServerConnectionTest {
         final NodeIdentity identity = new NodeIdentity(wallet);
         
         try {
-            // --- 1. Listener local en el puerto 4662 (Con Ofuscación para el Callback) ---
+            // --- 1. Listener local en el puerto 5662 (Con Ofuscación para el Callback) ---
             ServerBootstrap sb = new ServerBootstrap();
             sb.group(bossGroup, group)
               .channel(NioServerSocketChannel.class)
@@ -82,7 +82,7 @@ public class RealServerConnectionTest {
                           }
                           @Override
                           protected void channelRead0(ChannelHandlerContext ctx, Ed2kMessage msg) {
-                              logger.info("[LISTENER] Recibido mensaje del servidor en el puerto 4662: {}", msg.getClass().getSimpleName());
+                              logger.info("[LISTENER] Recibido mensaje del servidor en el puerto 5662: {}", msg.getClass().getSimpleName());
                               
                               if (msg instanceof LoginRequest hello) {
                                   logger.info("[LISTENER] OP_HELLO recibido. Hash: {}, ID: {}, Tags: {}", 
@@ -105,7 +105,7 @@ public class RealServerConnectionTest {
                                   respBuf.writeByte(0x4C); // OP_HELLOANSWER (ID CHANGE)
                                   respBuf.writeBytes(identity.getUserHash());
                                   respBuf.writeIntLE(0); // Client ID nulo
-                                  respBuf.writeShortLE(4662); // Nuestro puerto
+                                  respBuf.writeShortLE(5662); // Nuestro puerto
                                   respBuf.writeIntLE(3); // 3 Tags
 
                                   new Ed2kTag(Ed2kConstants.TAG_TYPE_STRING, Ed2kConstants.CT_NAME, "ChainDonkey_Alpha").writeToBuffer(respBuf);
@@ -127,8 +127,8 @@ public class RealServerConnectionTest {
                       });
                   }
               });
-            ChannelFuture listenerFuture = sb.bind(4662).sync();
-            logger.info("[LISTENER] Escuchando en el puerto 4662 con soporte de ofuscación.");
+            ChannelFuture listenerFuture = sb.bind(5662).sync();
+            logger.info("[LISTENER] Escuchando en el puerto 5662 con soporte de ofuscación.");
 
             // --- 2. Conexión saliente ---
             Bootstrap b = new Bootstrap();
@@ -139,19 +139,7 @@ public class RealServerConnectionTest {
                  protected void initChannel(SocketChannel ch) {
                       ch.pipeline().addLast(new Ed2kObfuscationHandler(true)); // Modo INITIATOR
                       
-                      // Raw Byte Logger para depurar qué nos envía el servidor antes del codec
-                      ch.pipeline().addLast(new io.netty.channel.ChannelInboundHandlerAdapter() {
-                          @Override
-                          public void channelRead(ChannelHandlerContext ctx, Object msg) {
-                              if (msg instanceof io.netty.buffer.ByteBuf buf) {
-                                  byte[] bytes = new byte[Math.min(buf.readableBytes(), 32)];
-                                  buf.getBytes(buf.readerIndex(), bytes);
-                                  logger.info("[MAIN RECV] Bytes crudos (32b): {}", io.netty.buffer.ByteBufUtil.hexDump(bytes));
-                              }
-                              ctx.fireChannelRead(msg);
-                          }
-                      });
-                     ch.pipeline().addLast(new Ed2kCodec());
+                      ch.pipeline().addLast(new Ed2kCodec());
                      ch.pipeline().addLast(new SimpleChannelInboundHandler<Ed2kMessage>() {
                          @Override
                           public void channelActive(ChannelHandlerContext ctx) {
@@ -162,12 +150,12 @@ public class RealServerConnectionTest {
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_STRING, Ed2kConstants.CT_NAME, "ChainDonkey_Alpha"));
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_VERSION, 60));
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_EMULE_VERSION, 0x003C0100));
-                             tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT16, Ed2kConstants.CT_PORT, 4662));
+                             tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT16, Ed2kConstants.CT_PORT, 5662));
                              tags.add(new Ed2kTag(Ed2kConstants.TAG_TYPE_UINT32, Ed2kConstants.CT_SERVER_FLAGS, 0xFFFFFFFF));
 
                              LoginRequest login = new LoginRequest(
                                      identity.getUserHash(),
-                                     0, 4662, tags
+                                     0, 5662, tags
                              );
                              ctx.writeAndFlush(login);
                           }

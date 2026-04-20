@@ -22,6 +22,9 @@ public class LoginRequest extends Ed2kMessage {
     private final long clientId; // 4 bytes
     private final int port; // 2 bytes
     private final List<Ed2kTag> tags; // variable length
+    private final long serverIp; // 4 bytes (opcional para P2P)
+    private final int serverPort; // 2 bytes (opcional para P2P)
+    private boolean isP2P = false; // Indica si es un mensaje entre clientes
 
     /**
      * Construye un LoginRequest con los parámetros de identidad proporcionados.
@@ -33,7 +36,14 @@ public class LoginRequest extends Ed2kMessage {
      * @throws IllegalArgumentException si userHash no tiene exactamente 16 bytes
      */
     public LoginRequest(byte[] userHash, long clientId, int port, List<Ed2kTag> tags) {
+        this(userHash, clientId, port, tags, 0, 0);
+    }
 
+    public LoginRequest(byte[] userHash, long clientId, int port, List<Ed2kTag> tags, long serverIp, int serverPort) {
+        this(userHash, clientId, port, tags, serverIp, serverPort, false);
+    }
+
+    public LoginRequest(byte[] userHash, long clientId, int port, List<Ed2kTag> tags, long serverIp, int serverPort, boolean isP2P) {
         // Pasamos el opcode del mensaje a la clase padre
         super(Ed2kConstants.OP_LOGINREQUEST);
 
@@ -47,6 +57,9 @@ public class LoginRequest extends Ed2kMessage {
         this.clientId = clientId;
         this.port = port;
         this.tags = tags;
+        this.serverIp = serverIp;
+        this.serverPort = serverPort;
+        this.isP2P = isP2P;
     }
 
     // Getters
@@ -80,6 +93,10 @@ public class LoginRequest extends Ed2kMessage {
 
     @Override
     public void encode(ByteBuf out) {
+        if (isP2P) {
+            out.writeByte(16); // eMule P2P espera la longitud del hash (16) al principio
+        }
+        
         out.writeBytes(userHash);
         out.writeIntLE((int) clientId);
         out.writeShortLE(port);
@@ -88,6 +105,12 @@ public class LoginRequest extends Ed2kMessage {
         // Codificamos cada tag
         for (Ed2kTag tag : tags) {
             tag.writeToBuffer(out); 
+        }
+
+        if (isP2P) {
+            // Para P2P añadimos la IP y Puerto del servidor al final (6 bytes)
+            out.writeIntLE((int) serverIp);
+            out.writeShortLE(serverPort);
         }
     }
 
@@ -126,9 +149,16 @@ public class LoginRequest extends Ed2kMessage {
                 parsedTags.add(tag);
             }
         }
+
+        long sIp = 0;
+        int sPort = 0;
+        if (in.readableBytes() >= 6) {
+            sIp = in.readUnsignedIntLE();
+            sPort = in.readUnsignedShortLE();
+        }
         
         // Creamos y devolvemos el objeto
-        return new LoginRequest(hash, clientIdentifier, clientPort, parsedTags);
+        return new LoginRequest(hash, clientIdentifier, clientPort, parsedTags, sIp, sPort);
     }
 }
 

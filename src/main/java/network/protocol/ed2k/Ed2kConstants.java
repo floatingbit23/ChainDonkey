@@ -77,6 +77,12 @@ public final class Ed2kConstants {
     
     /** Nombre de etiqueta para las banderas de capacidades del servidor. */
     public static final byte CT_SERVER_FLAGS = 0x20;
+    
+    /** Nombre de etiqueta para opciones misceláneas de eMule 1 (ID 0xFA). */
+    public static final byte CT_EMULE_MISCOPTIONS1 = (byte) 0xFA;
+    
+    /** Nombre de etiqueta para opciones misceláneas de eMule 2 (ID 0xFE). */
+    public static final byte CT_EMULE_MISCOPTIONS2 = (byte) 0xFE;
 
     // --- Puertos ---
 

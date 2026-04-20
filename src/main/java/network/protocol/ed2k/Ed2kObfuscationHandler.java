@@ -37,9 +37,13 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
     private static final int PRIMESIZE_BYTES = 96;
     private static final int MAGICVALUE_SYNC = 0x835E6FC4;
     
-    // Sales para Servidor (Confirmadas por Brute-Force en Sunrise)
+    // Sales para Servidor
     private static final byte SERVER_SALT_RECV = (byte) 0xCB; // 203
     private static final byte SERVER_SALT_SEND = (byte) 0x22; // 34
+
+    // Sales para Peer (Cliente-Cliente) - Iguales a Servidor según eMule source code (MAGICVALUE_REQUESTER=34, MAGICVALUE_SERVER=203)
+    private static final byte PEER_SALT_SEND = (byte) 0x22; // MAGICVALUE_REQUESTER = 34 → clave de envío de Client A
+    private static final byte PEER_SALT_RECV = (byte) 0xCB; // MAGICVALUE_SERVER = 203    → clave de recepción de Client A
 
     public enum State {
         INITIATOR_SEND_DH_PUB,
@@ -54,17 +58,24 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
 
     private State state;
     private final boolean initiator;
+    private final byte[] targetUserHash; // Si es null, usamos modo Servidor (DH)
     private Cipher rc4Send;
     private Cipher rc4Receive;
     private BigInteger privateA;
+    private byte[] randomKeyPart; 
     private final SecureRandom random = new SecureRandom();
 
     public Ed2kObfuscationHandler() {
-        this(true);
+        this(true, null);
     }
 
     public Ed2kObfuscationHandler(boolean initiator) {
+        this(initiator, null);
+    }
+
+    public Ed2kObfuscationHandler(boolean initiator, byte[] targetUserHash) {
         this.initiator = initiator;
+        this.targetUserHash = targetUserHash;
         this.state = initiator ? State.INITIATOR_SEND_DH_PUB : State.WAIT_HANDSHAKE_START;
     }
 
@@ -79,7 +90,16 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
     }
 
     private void startInitiatorHandshake(ChannelHandlerContext ctx) {
+        // SI TENEMOS HASH, USAMOS PROTOCOLO PEER (SIN DH)
+        if (targetUserHash != null) {
+            startPeerInitiatorHandshake(ctx);
+            return;
+        }
+
+        // SI NO HAY HASH, SEGUIMOS EL FLUJO DH DE SIEMPRE (SERVIDOR)
+        logger.info("---------------------------------------------------------");
         logger.info("[OBFUSCATION] Iniciando Handshake Diffie-Hellman (Iniciador)...");
+        logger.info("---------------------------------------------------------");
         byte[] aBytes = new byte[16];
         random.nextBytes(aBytes);
         privateA = new BigInteger(1, aBytes);
@@ -124,6 +144,7 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                 initCiphers(encodeTo96Bytes(sharedSecret), true);
                 
                 // Enviar Magic inmediatamente
+                logger.info("[OBFUSCATION] DH compartido derivado. Enviando Magic Value...");
                 sendHandshakeMagic(ctx);
                 
                 state = State.WAIT_MAGIC;
@@ -150,8 +171,10 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
             case WAIT_MAGIC -> {
                 if (in.readableBytes() < 4) return;
                 byte[] magicBytes = new byte[4];
-                in.readBytes(magicBytes);
+                in.getBytes(in.readerIndex(), magicBytes);
+                logger.debug("[OBFUSCATION] Bytes crudos recibidos (esperando Magic): {}", io.netty.buffer.ByteBufUtil.hexDump(magicBytes));
                 
+                in.readBytes(magicBytes);
                 // Magic del servidor a pos 1024 (descarte inicial en initCiphers)
                 byte[] decryptedMagic = rc4Receive.update(magicBytes);
                 long magic = ((decryptedMagic[3] & 0xFFL) << 24) | 
@@ -166,18 +189,27 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
                     throw new IllegalStateException("Obfuscation Magic Value mismatch at pos 1024!");
                 }
                 
-                logger.info("[OBFUSCATION] Magic del servidor verificado (pos 1024).");
+                logger.info("[OBFUSCATION] >>> Magic del servidor verificado (pos 1024).");
                 state = State.WAIT_METHODS;
                 decode(ctx, in, out);
             }
             case WAIT_METHODS -> {
-                if (in.readableBytes() < 2) return; // Protocolo (1) + PaddingLen (1)
-                byte[] block = new byte[2];
+                int bytesToRead = (targetUserHash != null) ? 2 : 3; // Peer: 2 bytes, Servidor: 3 bytes
+                if (in.readableBytes() < bytesToRead) return;
+                
+                byte[] block = new byte[bytesToRead];
                 in.readBytes(block);
                 byte[] decBlock = rc4Receive.update(block);
-                logger.info("[OBFUSCATION] Negociación recibida del servidor: {} {}", String.format("%02X", decBlock[0]), String.format("%02X", decBlock[1]));
                 
-                int paddingLen = decBlock[1] & 0xFF;
+                // El primer byte es el método seleccionado (0x00 = RC4)
+                int method = decBlock[0] & 0xFF;
+                // El último byte siempre es el PaddingLen
+                int paddingLen = decBlock[bytesToRead - 1] & 0xFF;
+                
+                logger.info("[OBFUSCATION] Negociación recibida: Método {} ({} bytes), Padding {} bytes", 
+                    method == 0 ? "0x00 (RC4)" : "0x" + Integer.toHexString(method),
+                    bytesToRead, paddingLen);
+                
                 if (paddingLen > 0) {
                     if (in.readableBytes() < paddingLen) {
                         in.resetReaderIndex();
@@ -193,7 +225,9 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
             }
             case WAIT_PADDING -> {
                 // El padding ya se procesó en WAIT_METHODS si existía
-                logger.info("[OBFUSCATION] Handshake (Magic + Neg) completado. Túnel sincronizado.");
+                logger.info("[OBFUSCATION] #########################################################");
+                logger.info("[OBFUSCATION] # Handshake Completado. ¡Túnel RC4 Sincronizado!");
+                logger.info("[OBFUSCATION] #########################################################");
                 
                 state = State.ENCRYPTING;
                 ctx.fireChannelActive();
@@ -219,6 +253,48 @@ public class Ed2kObfuscationHandler extends ByteToMessageCodec<ByteBuf> {
         byte[] plain = new byte[msg.readableBytes()];
         msg.readBytes(plain);
         out.writeBytes(rc4Send.update(plain));
+    }
+
+    private void startPeerInitiatorHandshake(ChannelHandlerContext ctx) {
+        logger.info("[OBFUSCATION] Iniciando Handshake Peer-to-Peer con eMule...");
+        
+        randomKeyPart = new byte[4];
+        random.nextBytes(randomKeyPart);
+        
+        // Inicializar Ciphers de Peer
+        rc4Receive = new Cipher(derivePeerKey(targetUserHash, PEER_SALT_RECV, randomKeyPart));
+        rc4Receive.update(new byte[1024]);
+
+        rc4Send = new Cipher(derivePeerKey(targetUserHash, PEER_SALT_SEND, randomKeyPart));
+        rc4Send.update(new byte[1024]);
+
+        // Enviar Paquete Inicial Peer (12 bytes)
+        ByteBuf handshake = ctx.alloc().buffer(12);
+        handshake.writeByte(0x80); 
+        handshake.writeBytes(randomKeyPart);
+        
+        ByteBuf plain = ctx.alloc().buffer(7);
+        plain.writeIntLE(MAGICVALUE_SYNC);
+        plain.writeByte(0x01); // MethodsSupported (Bitmask: bit 0 = ENM_OBFUSCATION)
+        plain.writeByte(0x00); // MethodPreferred (ENM_OBFUSCATION = 0x00)
+        plain.writeByte(0x00); // PaddingLen
+        
+        byte[] plainBytes = new byte[7];
+        plain.readBytes(plainBytes);
+        handshake.writeBytes(rc4Send.update(plainBytes));
+        
+        ctx.writeAndFlush(handshake);
+        plain.release();
+        
+        state = State.WAIT_MAGIC;
+    }
+
+    private byte[] derivePeerKey(byte[] userHash, byte salt, byte[] randomPart) {
+        byte[] buffer = new byte[userHash.length + 1 + randomPart.length];
+        System.arraycopy(userHash, 0, buffer, 0, userHash.length);
+        buffer[userHash.length] = salt;
+        System.arraycopy(randomPart, 0, buffer, userHash.length + 1, randomPart.length);
+        return new MD5Sum(buffer).GetRawHash();
     }
 
     private void sendHandshakeMagic(ChannelHandlerContext ctx) {
