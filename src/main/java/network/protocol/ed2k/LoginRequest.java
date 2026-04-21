@@ -35,8 +35,16 @@ public class LoginRequest extends Ed2kMessage {
      * @param tags     una lista de etiquetas suplementarias (capabilities, nombre del cliente, versión, etc.)
      * @throws IllegalArgumentException si userHash no tiene exactamente 16 bytes
      */
+    public LoginRequest(byte[] userHash, long clientId, int port) {
+        this(userHash, clientId, port, new ArrayList<>(), 0, 0, false);
+    }
+
+    public LoginRequest(byte[] userHash, long clientId, int port, boolean isP2P) {
+        this(userHash, clientId, port, new ArrayList<>(), 0, 0, isP2P);
+    }
+
     public LoginRequest(byte[] userHash, long clientId, int port, List<Ed2kTag> tags) {
-        this(userHash, clientId, port, tags, 0, 0);
+        this(userHash, clientId, port, tags, 0, 0, false);
     }
 
     public LoginRequest(byte[] userHash, long clientId, int port, List<Ed2kTag> tags, long serverIp, int serverPort) {
@@ -56,10 +64,18 @@ public class LoginRequest extends Ed2kMessage {
         this.userHash = userHash;
         this.clientId = clientId;
         this.port = port;
-        this.tags = tags;
+        this.tags = tags != null ? tags : new ArrayList<>();
         this.serverIp = serverIp;
         this.serverPort = serverPort;
         this.isP2P = isP2P;
+    }
+
+    /**
+     * Añade una etiqueta a la solicitud.
+     * @param tag la etiqueta a añadir
+     */
+    public void addTag(Ed2kTag tag) {
+        this.tags.add(tag);
     }
 
     // Getters

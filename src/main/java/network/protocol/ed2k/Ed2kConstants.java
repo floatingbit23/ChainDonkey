@@ -41,6 +41,36 @@ public final class Ed2kConstants {
     /** Opcode para solicitar la lista de servidores. */
     public static final byte OP_GETSERVERLIST = 0x14;
 
+    /** Opcode para identificación segura (P2P). */
+    public static final byte OP_SECIDENTSTATE = (byte) 0x87;
+
+    /** Opcode para enviar la firma RSA. */
+    public static final byte OP_SIGNATURE = (byte) 0x86;
+
+    /** Opcode para enviar clave pública RSA. */
+    public static final byte OP_PUBLICKEY = (byte) 0x85;
+
+    /** Opcode para respuesta de fuentes (clásico). */
+    public static final byte OP_FOUNDSOURCES = 0x42;
+
+    /** Opcode para respuesta de fuentes de eMule (SX2). */
+    public static final byte OP_FOUNDSOURCES_EMULE = (byte) 0x95;
+
+    /** Opcode para respuesta de fuentes (extendido). */
+    public static final byte OP_ANSWERSOURCES2 = (byte) 0x84;
+
+    /** Opcode para solicitar fuentes (clásico). */
+    public static final byte OP_GETSOURCES = (byte) 0x81;
+
+    /** Opcode para solicitar fuentes (extendido/SX2). */
+    public static final byte OP_GETSOURCES_EXT = (byte) 0x94;
+
+    /** Opcode para solicitar el inicio de una subida/descarga. */
+    public static final byte OP_STARTUPLOADREQ = 0x47;
+
+    /** Opcode que indica la posición en la cola del cliente remoto. */
+    public static final byte OP_QUEUERANK = 0x54;
+
     // --- Tipos de Etiquetas (Tags) ---
 
     /** Tipo de etiqueta para entero de 1 byte. */

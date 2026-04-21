@@ -51,6 +51,7 @@ skills-lock.json
 # Secrets and Node Identity
 node.identity
 *.identity
+node_identity.dat
 
 # Internal Testing Files
 test_servers.py
