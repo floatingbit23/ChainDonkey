@@ -53,6 +53,24 @@
             <div class="empty-msg">Waiting for node synchronization...</div>
         </section>
 
+        <!-- KADEMLIA NETWORK VIEW -->
+        <section class="kad-container">
+            <h3>Kademlia Network Status</h3>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <span class="stat-label">Local KadID</span>
+                    <div class="stat-value small-text" id="kad-local-id">Loading...</div>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Total Nodes</span>
+                    <div class="stat-value" id="kad-total-nodes">0</div>
+                </div>
+            </div>
+            <div id="kad-buckets-view" class="buckets-grid">
+                <!-- Buckets will be rendered here -->
+            </div>
+        </section>
+
         <!-- NAVIGATION CONTROLS (Hidden if total blocks < pageSize) -->
         <div id="pagination-controls" class="pagination-container" style="display: none;">
             <button id="prev-btn" class="pag-btn" onclick="changePage(-1)">Previous</button>

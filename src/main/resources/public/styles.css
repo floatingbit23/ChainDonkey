@@ -438,3 +438,51 @@ main {
     color: var(--text-dim);
     padding: 4rem;
 }
+
+/* KADEMLIA STATUS STYLES */
+.kad-container {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--glass-border);
+}
+
+.kad-container h3 {
+    margin-bottom: 2rem;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    font-size: 1.2rem;
+    background: linear-gradient(to right, var(--primary), var(--secondary));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.small-text {
+    font-size: 0.8rem !important;
+    word-break: break-all;
+}
+
+.buckets-grid {
+    display: grid;
+    grid-template-columns: repeat(16, 1fr);
+    gap: 0.5rem;
+    margin-top: 2rem;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 12px;
+    border: 1px solid var(--glass-border);
+}
+
+.bucket-indicator {
+    height: 12px;
+    background: var(--success);
+    border-radius: 3px;
+    box-shadow: 0 0 8px var(--success);
+    transition: all 0.3s;
+}
+
+.bucket-indicator:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 15px var(--success);
+}

@@ -1,120 +1,127 @@
 package network.node;
 
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+
+import network.protocol.kad.KadId;
 
 /**
  * Un Data Transfer Object (DTO) inmutable que contiene información sobre un nodo remoto.
- * Almacena el ID de Kademlia del nodo, sus direcciones de red (TCP/UDP) y sus capacidades (e.g. si es un nodo de ChainDonkey).
+ * Esta clase es el núcleo de la Routing Table y es 100% compatible con el formato 
+ * de 25 bytes de Kademlia v2 (el estándar actual de eMule/aMule).
  */
 public final class NodeInfo {
 
-    private final byte[] nodeId;
-    private final InetSocketAddress tcpAddress; 
+    // Identificador único de 128 bits del nodo en la red Kademlia
+    private final KadId nodeId;
+    
+    // Dirección IP del nodo (soportando tanto IPv4 como IPv6 internamente)
+    private final InetAddress address;
+    
+    // Puerto UDP: Se utiliza para todas las consultas Kademlia (FIND_NODE, PING, etc.)
     private final int udpPort;
+    
+    // Puerto TCP: Se utiliza para la transferencia de datos y protocolo eD2K
+    private final int tcpPort;
+    
+    // Versión del protocolo: Permite saber qué capacidades tiene el cliente remoto
+    private final int version;
+    
+    // Marca de tiempo de la última vez que el nodo respondió a una petición
     private final long lastSeen;
+    
+    // Indica si el nodo es un cliente oficial de ChainDonkey (permite funciones extra de blockchain)
     private final boolean isChainDonkeyNode;
 
     /**
-     * Construye una nueva instancia de NodeInfo.
-     *
-     * @param nodeId            el ID de Kademlia de 16 bytes del nodo
-     * @param tcpAddress        el socket TCP del nodo (direccion IP + puerto TCP) (para la transferencia de archivos)
-     * @param udpPort           el puerto de escucha UDP para paquetes Kademlia (para las consultas Kademlia)
-     * @param lastSeen          el Timestamp de la última vez que se vio el nodo online (en milisegundos)
-     * @param isChainDonkeyNode indica si este nodo admite extensiones de ChainDonkey
+     * Constructor completo para Kademlia v2.
+     * Corresponde a la estructura de 25 bytes que recibimos de la red:
+     * ID(16) + IP(4) + UDP(2) + TCP(2) + Version(1).
+     * 
+     * @param nodeId ID del nodo remoto
+     * @param address Dirección IP
+     * @param udpPort Puerto para Kademlia
+     * @param tcpPort Puerto para transferencias TCP
+     * @param version Versión del software cliente
      */
-    public NodeInfo(byte[] nodeId, InetSocketAddress tcpAddress, int udpPort, long lastSeen, boolean isChainDonkeyNode) {
-       
-        // Validación de seguridad
-        if (nodeId == null || nodeId.length != 16) {
-            throw new IllegalArgumentException("El ID del nodo debe tener exactamente 16 bytes.");
-        }
-
-        // Asignación de valores (hacemos una copia del nodeId para mantener la inmutabilidad)
-        this.nodeId = nodeId.clone(); 
-        this.tcpAddress = tcpAddress;
+    public NodeInfo(KadId nodeId, InetAddress address, int udpPort, int tcpPort, int version) {
+        this.nodeId = nodeId;
+        this.address = address;
         this.udpPort = udpPort;
-        this.lastSeen = lastSeen;
-        this.isChainDonkeyNode = isChainDonkeyNode;
+        this.tcpPort = tcpPort;
+        this.version = version;
+        this.lastSeen = System.currentTimeMillis();
+        this.isChainDonkeyNode = false;
     }
 
     /**
-     * Obtiene el identificador Kademlia de 16 bytes del nodo.
-     * @return el array de 16 bytes que representa el ID del nodo
+     * Constructor de conveniencia para compatibilidad y entornos de prueba.
+     * Asume que los puertos UDP y TCP son los mismos y asigna una versión por defecto (8).
+     * 
+     * @param nodeId ID del nodo
+     * @param addr Dirección socket (IP + Puerto)
      */
-    public byte[] getNodeId() {
-        return nodeId.clone();
+    public NodeInfo(KadId nodeId, InetSocketAddress addr) {
+        this(nodeId, addr.getAddress(), addr.getPort(), addr.getPort(), 8);
+    }
+
+    // --- Getters ---
+
+    public KadId getNodeId() { return nodeId; }
+    
+    public InetAddress getAddress() { return address; }
+    
+    public int getUdpPort() { return udpPort; }
+    
+    public int getTcpPort() { return tcpPort; }
+    
+    public int getVersion() { return version; }
+    
+    public long getLastSeen() { return lastSeen; }
+    
+    public boolean isChainDonkeyNode() { return isChainDonkeyNode; }
+
+    /**
+     * Devuelve la dirección UDP completa del nodo.
+     * @return InetSocketAddress con la IP y el puerto UDP.
+     */
+    public InetSocketAddress getUdpAddress() {
+        return new InetSocketAddress(address, udpPort);
     }
 
     /**
-     * Obtiene la dirección TCP del nodo.
-     * @return el InetSocketAddress TCP
+     * Devuelve la dirección TCP completa del nodo.
+     * @return InetSocketAddress con la IP y el puerto TCP.
      */
     public InetSocketAddress getTcpAddress() {
-        return tcpAddress;
+        return new InetSocketAddress(address, tcpPort);
     }
 
     /**
-     * Obtiene el puerto de escucha UDP del nodo.
-     * @return el número de puerto UDP
-     */
-    public int getUdpPort() {
-        return udpPort;
-    }
-
-    /**
-     * Obtiene el timestamp de la última vez que este nodo fue visto en línea recientemente.
-     * @return el timestamp en milisegundos desde el epoch
-     */
-    public long getLastSeen() {
-        return lastSeen;
-    }
-
-    /**
-     * Comprueba si el nodo se identifica a sí mismo como un nodo de ChainDonkey.
-     * @return {@code true} si es un nodo de ChainDonkey, {@code false} si es un nodo de eMule clásico.
-     */
-    public boolean isChainDonkeyNode() {
-        return isChainDonkeyNode;
-    }
-
-    // Sobreescritura de métodos equals() y hashCode() y toString() para facilitar el uso en colecciones
-
-    /**
-     * Compara dos instancias de NodeInfo basándose en el nodeId.
-     * @param o el objeto a comparar
-     * @return true si los nodeIds son iguales, false en caso contrario
+     * Los nodos se consideran iguales si tienen el mismo KadID, 
+     * independientemente de si han cambiado de IP o puerto.
      */
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true; // Si es la misma referencia, son iguales
-        if (o == null || getClass() != o.getClass()) return false; // Si es nulo o de otra clase, no son iguales
-        NodeInfo nodeInfo = (NodeInfo) o; // Si es una instancia de NodeInfo, comparamos los nodeIds...
-        return java.util.Arrays.equals(nodeId, nodeInfo.nodeId); // Si los nodeIds son iguales, entonces los objetos NodeInfo son iguales
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        NodeInfo nodeInfo = (NodeInfo) o;
+        return nodeId.equals(nodeInfo.nodeId);
     }
 
-    /**
-     * Calcula el valor hash de esta instancia de NodeInfo basándose en el nodeId.
-     * @return el hash code del nodeId
-     */
     @Override
     public int hashCode() {
-        return java.util.Arrays.hashCode(nodeId);
+        return nodeId.hashCode();
     }
 
     /**
-     * Devuelve una representación en formato String de esta instancia de NodeInfo.
-     * @return una cadena que representa el nodeId y la dirección TCP
+     * Representación legible para los logs: [ShortID@IP:Puerto]
      */
     @Override
     public String toString() {
-        return "NodeInfo{" +
-               "nodeId=" + java.util.Arrays.toString(nodeId) +
-               ", tcpAddress=" + tcpAddress +
-               ", udpPort=" + udpPort +
-               ", lastSeen=" + lastSeen +
-               ", isChainDonkeyNode? " + isChainDonkeyNode +
-               '}';
+        return String.format("Node[%s@%s:%d]", 
+            nodeId.toString().substring(0, 8), 
+            address.getHostAddress(), 
+            udpPort);
     }
 }
-

@@ -292,9 +292,48 @@ function updateStats(data) {
     document.getElementById('stat-supply').innerText = supply.toFixed(2);
 }
 
+/**
+ * KADEMLIA NETWORK STATS
+ */
+async function fetchKadStats() {
+    try {
+        const response = await fetch('/api/kad');
+        const data = await response.json();
+        
+        const localIdEl = document.getElementById('kad-local-id');
+        const totalNodesEl = document.getElementById('kad-total-nodes');
+        
+        if (localIdEl) localIdEl.textContent = data.localId;
+        if (totalNodesEl) totalNodesEl.textContent = data.totalNodes;
+        
+        renderBuckets(data.buckets);
+    } catch (err) {
+        console.error("Failed to fetch Kad stats:", err);
+    }
+}
+
+function renderBuckets(buckets) {
+    const container = document.getElementById('kad-buckets-view');
+    if (!container || !buckets) return;
+    
+    container.innerHTML = '';
+    buckets.forEach((size, index) => {
+        if (size > 0) {
+            const dot = document.createElement('div');
+            dot.className = 'bucket-indicator';
+            dot.title = `Bucket ${index}: ${size} nodes`;
+            // Visual mapping: more nodes = brighter/larger
+            dot.style.opacity = Math.min(1, 0.3 + (size / 10));
+            container.appendChild(dot);
+        }
+    });
+}
+
 /** 
  * INITIALIZATION 
- * Polls every 3 seconds for a highly responsive feel.
+ * Polls for a highly responsive feel.
  */
 setInterval(fetchBlockchain, 3000);
+setInterval(fetchKadStats, 5000);
 fetchBlockchain();
+fetchKadStats();

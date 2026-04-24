@@ -4,6 +4,9 @@ import java.security.Security;
 import java.util.ArrayList; 
 import java.util.HashMap;
 
+import network.protocol.kad.KadId;
+import network.protocol.kad.RoutingTable;
+
 // Class to represent the blockchain
 public class SimpleBlockchain {
 
@@ -17,16 +20,22 @@ public class SimpleBlockchain {
     public static HashMap<String, TransactionOutput> UTXOs = new HashMap<>();
 
     public static Wallet walletA;
-    public static Wallet walletB;
-    public static Transaction genesisTransaction;
+    public static Wallet walletB; 
+    
+    public static Transaction genesisTransaction; // Transacción génesis (la primera transacción en la blockchain)
+    public static RoutingTable routingTable; // Tabla de rutas Kad para el Dashboard
 
     public static void main(String[] args) {
         
-        //Setup Bouncey castle as a Security Provider
-		Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider()); 
+        // Setup Bouncey castle as a Security Provider
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider()); 
+
+        // Inicializar Kademlia para el Dashboard
+        KadId localId = KadId.random();
+        routingTable = new RoutingTable(localId);
 
         // Start the Web Dashboard
-        BlockchainServer.start(blockchain);
+        BlockchainServer.start(blockchain, routingTable);
 
         // Create the new wallets
         walletA = new Wallet();
